@@ -223,8 +223,10 @@ export const defaultAnimation: AnimationSettings = {
   speed: 1,
 };
 
-export function makeScene(scene: Omit<MathScene, "id" | "annotations" | "settings" | "animation"> &
-  Partial<Pick<MathScene, "id" | "annotations" | "settings" | "animation">>): MathScene {
+export function makeScene(
+  scene: Omit<MathScene, "id" | "annotations" | "settings" | "animation"> &
+    Partial<Pick<MathScene, "id" | "annotations" | "settings" | "animation">>,
+): MathScene {
   return {
     id: scene.id ?? `${scene.conceptId}-${Date.now().toString(36)}`,
     annotations: scene.annotations ?? [],

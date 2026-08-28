@@ -19,7 +19,9 @@ const KNOWN_CONSTANTS = new Set(["pi", "e", "tau", "phi", "i", "Infinity", "NaN"
 
 /** Identifiers that are functions in math.js and therefore not parameters. */
 function isFunctionCallName(node: MathNode, name: string): boolean {
-  return node.type === "FunctionNode" && (node as unknown as { fn: { name?: string } }).fn?.name === name;
+  return (
+    node.type === "FunctionNode" && (node as unknown as { fn: { name?: string } }).fn?.name === name
+  );
 }
 
 /** Normalise common teacher notation into math.js syntax. */
@@ -94,12 +96,16 @@ export function compileExpression(source: string, variable = "x"): CompiledExpre
 }
 
 /** Validate without throwing — used by the equation editor for inline feedback. */
-export function tryCompile(source: string, variable = "x"):
-  | { ok: true; value: CompiledExpression }
-  | { ok: false; error: string } {
+export function tryCompile(
+  source: string,
+  variable = "x",
+): { ok: true; value: CompiledExpression } | { ok: false; error: string } {
   try {
     return { ok: true, value: compileExpression(source, variable) };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Please check the equation." };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Please check the equation.",
+    };
   }
 }

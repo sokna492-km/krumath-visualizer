@@ -37,7 +37,13 @@ export type RiemannMode = "left" | "right" | "midpoint" | "trapezium";
 
 export type Rectangle = { x0: number; x1: number; height: number };
 
-export function riemannRectangles(f: Fn, a: number, b: number, n: number, mode: RiemannMode): Rectangle[] {
+export function riemannRectangles(
+  f: Fn,
+  a: number,
+  b: number,
+  n: number,
+  mode: RiemannMode,
+): Rectangle[] {
   const rects: Rectangle[] = [];
   const width = (b - a) / n;
   for (let i = 0; i < n; i += 1) {

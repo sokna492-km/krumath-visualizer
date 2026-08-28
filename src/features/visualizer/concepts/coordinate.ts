@@ -4,11 +4,20 @@ import { makePlotFunction, scopeFromParameters } from "../engine/values";
 import { makeScene, type PointObject } from "../types/scene";
 import { registerConcepts, type ConceptDefinition } from "./registry";
 
-function point(id: string, x: number, y: number, label: string, palette: 0 | 1 | 2 | 3): PointObject {
+function point(
+  id: string,
+  x: number,
+  y: number,
+  label: string,
+  palette: 0 | 1 | 2 | 3,
+): PointObject {
   return { id, kind: "point", x, y, label, draggable: true, showCoords: true, palette };
 }
 
-function readPoint(scene: { objects: Array<{ id: string; kind: string }> }, id: string): [number, number] {
+function readPoint(
+  scene: { objects: Array<{ id: string; kind: string }> },
+  id: string,
+): [number, number] {
   const obj = scene.objects.find((o) => o.id === id) as PointObject | undefined;
   return obj ? [Number(obj.x), Number(obj.y)] : [0, 0];
 }
@@ -33,10 +42,39 @@ const twoPoints: ConceptDefinition = {
       objects: [
         point("A", -2, -1, "A", 1),
         point("B", 2, 3, "B", 2),
-        { id: "AB", kind: "line", p1: "A", p2: "B", mode: "segment", palette: 0, showLength: true, label: "AB" },
+        {
+          id: "AB",
+          kind: "line",
+          p1: "A",
+          p2: "B",
+          mode: "segment",
+          palette: 0,
+          showLength: true,
+          label: "AB",
+        },
         { id: "C", kind: "point", x: 2, y: -1, visible: false, requires: "triangle" },
-        { id: "run", kind: "line", p1: "A", p2: "C", mode: "segment", dash: 2, palette: 3, label: "run", requires: "triangle" },
-        { id: "rise", kind: "line", p1: "C", p2: "B", mode: "segment", dash: 2, palette: 3, label: "rise", requires: "triangle" },
+        {
+          id: "run",
+          kind: "line",
+          p1: "A",
+          p2: "C",
+          mode: "segment",
+          dash: 2,
+          palette: 3,
+          label: "run",
+          requires: "triangle",
+        },
+        {
+          id: "rise",
+          kind: "line",
+          p1: "C",
+          p2: "B",
+          mode: "segment",
+          dash: 2,
+          palette: 3,
+          label: "rise",
+          requires: "triangle",
+        },
       ],
     }),
   readouts: (scene) => {
@@ -46,8 +84,15 @@ const twoPoints: ConceptDefinition = {
     const dy = by - ay;
     return [
       { label: "Gradient", value: dx === 0 ? "undefined (vertical)" : formatApprox(dy / dx) },
-      { label: "Distance AB", value: formatApprox(Math.hypot(dx, dy)), hint: "numerical approximation" },
-      { label: "Midpoint", value: `(${formatNumber((ax + bx) / 2)}, ${formatNumber((ay + by) / 2)})` },
+      {
+        label: "Distance AB",
+        value: formatApprox(Math.hypot(dx, dy)),
+        hint: "numerical approximation",
+      },
+      {
+        label: "Midpoint",
+        value: `(${formatNumber((ax + bx) / 2)}, ${formatNumber((ay + by) / 2)})`,
+      },
       { label: "Change", value: `Δx = ${formatNumber(dx)}, Δy = ${formatNumber(dy)}` },
     ];
   },
@@ -73,14 +118,34 @@ const simultaneous: ConceptDefinition = {
       ],
       flags: { solution: true },
       objects: [
-        { id: "f", kind: "function", expr: "m*x + c", label: "y = mx + c", showEquation: true, palette: 0 },
-        { id: "g", kind: "function", expr: "n*x + d", label: "y = nx + d", showEquation: true, palette: 2, dash: 2 },
+        {
+          id: "f",
+          kind: "function",
+          expr: "m*x + c",
+          label: "y = mx + c",
+          showEquation: true,
+          palette: 0,
+        },
+        {
+          id: "g",
+          kind: "function",
+          expr: "n*x + d",
+          label: "y = nx + d",
+          showEquation: true,
+          palette: 2,
+          dash: 2,
+        },
       ],
     }),
   readouts: (scene) => {
     const { m = 0, c = 0, n = 0, d = 0 } = scopeFromParameters(scene.parameters);
     if (m === n) {
-      return [{ label: "Solution", value: c === d ? "infinitely many (same line)" : "no solution (parallel lines)" }];
+      return [
+        {
+          label: "Solution",
+          value: c === d ? "infinitely many (same line)" : "no solution (parallel lines)",
+        },
+      ];
     }
     const x = (d - c) / (m - n);
     return [
@@ -108,7 +173,15 @@ const curveIntersections: ConceptDefinition = {
       flags: {},
       objects: [
         { id: "f", kind: "function", expr: "x^2", label: "y = x²", showEquation: true, palette: 0 },
-        { id: "g", kind: "function", expr: "m*x + c", label: "y = mx + c", showEquation: true, palette: 2, dash: 2 },
+        {
+          id: "g",
+          kind: "function",
+          expr: "m*x + c",
+          label: "y = mx + c",
+          showEquation: true,
+          palette: 2,
+          dash: 2,
+        },
       ],
     }),
   readouts: (scene) => {

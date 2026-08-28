@@ -160,24 +160,24 @@ theme/settings
 Conceptually:
 
 type MathScene = {
-  id: string;
-  title: string;
-  category: string;
+id: string;
+title: string;
+category: string;
 
-  viewport: {
-    xmin: number;
-    xmax: number;
-    ymin: number;
-    ymax: number;
-  };
+viewport: {
+xmin: number;
+xmax: number;
+ymin: number;
+ymax: number;
+};
 
-  objects: MathObject[];
+objects: MathObject[];
 
-  parameters: Parameter[];
+parameters: Parameter[];
 
-  annotations: Annotation[];
+annotations: Annotation[];
 
-  settings: SceneSettings;
+settings: SceneSettings;
 };
 
 Use a flexible object model.
@@ -185,21 +185,21 @@ Use a flexible object model.
 For example:
 
 type MathObject =
-  | FunctionObject
-  | PointObject
-  | LineObject
-  | SegmentObject
-  | RayObject
-  | CircleObject
-  | ArcObject
-  | PolygonObject
-  | VectorObject
-  | InequalityObject
-  | ParametricCurveObject
-  | PolarCurveObject
-  | TextObject
-  | ImageObject
-  | RegionObject;
+| FunctionObject
+| PointObject
+| LineObject
+| SegmentObject
+| RayObject
+| CircleObject
+| ArcObject
+| PolygonObject
+| VectorObject
+| InequalityObject
+| ParametricCurveObject
+| PolarCurveObject
+| TextObject
+| ImageObject
+| RegionObject;
 
 The exact implementation can be improved based on the chosen libraries.
 
@@ -244,26 +244,26 @@ The interface should be clean, modern and suitable for classroom use.
 Use a layout similar to:
 
 ┌───────────────────────────────────────────────────────────────┐
-│ KRUMATH   Math Visualizer                    Save  Reset  ⛶  │
+│ KRUMATH Math Visualizer Save Reset ⛶ │
 ├───────────────┬───────────────────────────────────────────────┤
-│               │                                               │
-│   CONCEPTS    │                                               │
-│               │                                               │
-│ Functions     │                                               │
-│ Geometry      │                                               │
-│ Trigonometry  │                                               │
-│ Vectors       │                 INTERACTIVE                   │
-│ Calculus      │                    GRAPH                      │
-│ Statistics    │                                               │
-│ Probability   │                       y                       │
-│ Sequences     │                       ↑                       │
-│ Transform.    │                    ╱                          │
-│               │                 ╱                             │
-│               │              ●                                │
-│               │──────────────┼────────────────────→ x        │
-│               │                                               │
+│ │ │
+│ CONCEPTS │ │
+│ │ │
+│ Functions │ │
+│ Geometry │ │
+│ Trigonometry │ │
+│ Vectors │ INTERACTIVE │
+│ Calculus │ GRAPH │
+│ Statistics │ │
+│ Probability │ y │
+│ Sequences │ ↑ │
+│ Transform. │ ╱ │
+│ │ ╱ │
+│ │ ● │
+│ │──────────────┼────────────────────→ x │
+│ │ │
 ├───────────────┴───────────────────────────────────────────────┤
-│ Equation / Parameters / Controls                               │
+│ Equation / Parameters / Controls │
 └───────────────────────────────────────────────────────────────┘
 
 However, do not blindly follow this layout.
@@ -609,9 +609,9 @@ as interactive sliders.
 
 Example:
 
-a     [-5 ─────●───── 5]
-h     [-10 ────●───── 10]
-k     [-10 ────●───── 10]
+a [-5 ─────●───── 5]
+h [-10 ────●───── 10]
+k [-10 ────●───── 10]
 
 Changing a parameter must update the graph immediately.
 
@@ -830,9 +830,9 @@ Allow teachers to create an original object and transform it.
 Example:
 
 Original triangle
-        ↓
+↓
 Translation
-        ↓
+↓
 Translated triangle
 
 Controls:
@@ -1421,11 +1421,11 @@ Design the system as a plugin/template architecture.
 A future concept should ideally be addable through something similar to:
 
 registerConcept({
-  id: "quadratic",
-  category: "functions",
-  title: "Quadratic",
-  createScene: createQuadraticScene,
-  controls: [...]
+id: "quadratic",
+category: "functions",
+title: "Quadratic",
+createScene: createQuadraticScene,
+controls: [...]
 });
 
 The exact implementation is up to you.
@@ -1437,33 +1437,33 @@ The important requirement is that adding a new concept should not require modify
 Use something conceptually similar to:
 
 src/
-  features/
-    visualizer/
-      components/
-      engine/
-      scenes/
-      concepts/
-      controls/
-      annotations/
-      animations/
-      serialization/
-      templates/
-      hooks/
-      types/
+features/
+visualizer/
+components/
+engine/
+scenes/
+concepts/
+controls/
+annotations/
+animations/
+serialization/
+templates/
+hooks/
+types/
 
-  math/
-    parser/
-    functions/
-    geometry/
-    calculus/
-    statistics/
-    probability/
+math/
+parser/
+functions/
+geometry/
+calculus/
+statistics/
+probability/
 
-  components/
-    ui/
+components/
+ui/
 
-  pages/
-    visualizer/
+pages/
+visualizer/
 
 Adapt this to the existing Krumath project architecture.
 
