@@ -355,9 +355,11 @@ function Index() {
       {!isPresentationMode && (
         <header className="md:hidden h-12 px-3 border-b border-border bg-card/95 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1.5 rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
-              <Compass className="h-4 w-4" />
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="Krumath"
+              className="h-7 w-7 shrink-0 rounded-lg"
+            />
             <div className="min-w-0">
               <h1 className="font-bold text-sm leading-none tracking-tight text-foreground flex items-center gap-1">
                 <span>KRUMATH</span>
