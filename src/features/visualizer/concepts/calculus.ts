@@ -32,7 +32,7 @@ const tangentGlider: ConceptDefinition = {
   category: "calculus",
   title: "Derivative & Tangent Line",
   summary:
-    "Slide point P along y = f(x) to inspect the instantaneous gradient f'(x) and tangent line equation.",
+    "Finding your exact speed or uphill steepness at one single moment! The tangent line shows the direction you are pointing right now.",
   toggles: [
     { key: "tangent", label: "Show tangent line" },
     { key: "normal", label: "Show normal line" },
@@ -89,7 +89,7 @@ const secantToTangent: ConceptDefinition = {
   category: "calculus",
   title: "Secant Line & Limit as h → 0",
   summary:
-    "Animate h → 0 to demonstrate how the average rate of change [f(x+h) − f(x)] / h converges to the instantaneous derivative.",
+    "Bringing two points closer and closer until they become one! This shows how average speed between two points turns into exact instant speed.",
   toggles: [{ key: "triangle", label: "Show rise/run triangle" }],
   createScene: () =>
     makeScene({
@@ -165,7 +165,8 @@ const riemannIntegration: ConceptDefinition = {
   id: "riemann-sum",
   category: "calculus",
   title: "Riemann Sum & Area Under Curve",
-  summary: "Approximate definite integral ∫ₐᵇ f(x)dx using n rectangular strips.",
+  summary:
+    "Measuring the total space underneath a curvy hill by stacking lots of thin rectangular building blocks!",
   toggles: [],
   createScene: () =>
     makeScene({

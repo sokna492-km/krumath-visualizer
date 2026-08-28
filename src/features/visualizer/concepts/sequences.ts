@@ -23,7 +23,7 @@ const arithmeticSequence: ConceptDefinition = {
   category: "sequences",
   title: "Arithmetic Sequence",
   summary:
-    "uₙ = a + (n − 1)d — common difference d, discrete progression and partial sum Sₙ = n/2 (2a + (n-1)d).",
+    "A stepping stone pattern of numbers where you add the same amount with every step, like skip counting by twos!",
   toggles: [{ key: "trend", label: "Show continuous trend line" }],
   createScene: () =>
     makeScene({
@@ -90,7 +90,8 @@ const geometricSequence: ConceptDefinition = {
   id: "geometric-sequence",
   category: "sequences",
   title: "Geometric Sequence",
-  summary: "uₙ = a·r^(n − 1) — common ratio r, exponential discrete terms and sum Sₙ.",
+  summary:
+    "A multiplying pattern of numbers where every step multiplies the previous number by a fixed ratio, growing faster and faster!",
   toggles: [{ key: "trend", label: "Show continuous curve" }],
   createScene: () =>
     makeScene({

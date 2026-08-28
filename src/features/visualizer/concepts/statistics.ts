@@ -23,7 +23,7 @@ const univariateStats: ConceptDefinition = {
   category: "statistics",
   title: "Summary Statistics & Box Plot",
   summary:
-    "Mean, Median, Mode, Range, Quartiles (Q1, Q3), IQR, and Five-Number Summary on a dot/box plot.",
+    "Organizing a bunch of numbers to find the average (mean), the exact middle number (median), and how widely spread out the numbers are.",
   toggles: [
     { key: "mean", label: "Show Mean line (dashed)" },
     { key: "median", label: "Show Median line (solid)" },
@@ -96,7 +96,8 @@ const scatterRegression: ConceptDefinition = {
   id: "scatter-regression",
   category: "statistics",
   title: "Scatter Plot & Linear Regression",
-  summary: "Scatter plot with line of best fit ŷ = mx + c and Pearson correlation coefficient r.",
+  summary:
+    "Drawing a best-fit trendline through scattered dots to discover the hidden pattern connecting two variables together!",
   toggles: [
     { key: "line", label: "Show line of best fit" },
     { key: "residuals", label: "Show vertical residuals" },

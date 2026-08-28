@@ -78,9 +78,12 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
     }
   };
 
-  // Pointer drag event handlers
+  // Pointer drag event handlers for mouse users
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // If clicking directly on a button or inside a button, do not capture pointer or interfere with button click
+    // Let native touch scrolling handle touch devices directly
+    if (e.pointerType === "touch") return;
+
+    // If clicking directly on a button or inside a button, do not capture pointer
     const target = e.target as HTMLElement;
     if (target.closest("button")) {
       return;
@@ -91,7 +94,7 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
-      // fallback if capture not supported
+      // fallback
     }
     setIsDragging(true);
     setHasMoved(false);
@@ -100,7 +103,7 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
+    if (e.pointerType === "touch" || !isDragging) return;
     const el = scrollContainerRef.current;
     if (!el) return;
     const deltaX = e.clientX - startX;
@@ -127,7 +130,7 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
       id="top-main-topics-nav"
       className="w-full bg-card/95 backdrop-blur-md border-b border-border shadow-2xs shrink-0 select-none z-20 relative"
     >
-      <div className="relative px-2 py-2 flex items-center max-w-full">
+      <div className="relative px-2 py-1.5 sm:py-2 flex items-center max-w-full">
         {/* Left Scroll Button */}
         {canScrollLeft && (
           <button
@@ -139,7 +142,7 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
           </button>
         )}
 
-        {/* Draggable Topics Bar */}
+        {/* Draggable & Touch-Scrollable Topics Bar */}
         <div
           ref={scrollContainerRef}
           onWheel={handleWheel}
@@ -147,11 +150,12 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUpOrLeave}
           onPointerLeave={handlePointerUpOrLeave}
-          className={`flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth px-1 cursor-grab active:cursor-grabbing ${
-            isDragging ? "cursor-grabbing" : ""
+          className={`flex-1 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth px-1 overscroll-contain ${
+            isDragging ? "cursor-grabbing" : "cursor-grab active:cursor-grabbing"
           }`}
           style={{
-            touchAction: "pan-y",
+            touchAction: "pan-x",
+            WebkitOverflowScrolling: "touch",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
           }}
@@ -168,9 +172,9 @@ export const TopTopicNavBar: React.FC<TopTopicNavBarProps> = ({
                   e.stopPropagation();
                   onSelectCategory(cat.id);
                 }}
-                className={`group relative px-3.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border cursor-pointer select-none ${
+                className={`group relative px-3 sm:px-3.5 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all flex items-center gap-1.5 sm:gap-2 shrink-0 border cursor-pointer select-none touch-manipulation min-h-[34px] sm:min-h-[36px] ${
                   isActive
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20 scale-100"
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs ring-2 ring-primary/20 scale-100 font-bold"
                     : "bg-background/70 text-muted-foreground border-border/80 hover:bg-accent hover:text-foreground hover:border-border"
                 }`}
               >

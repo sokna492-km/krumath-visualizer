@@ -26,7 +26,8 @@ const twoPoints: ConceptDefinition = {
   id: "two-points",
   category: "coordinate",
   title: "Gradient, distance & midpoint",
-  summary: "Drag A and B — gradient, length and midpoint update live.",
+  summary:
+    "Connect two dots with a line! You can measure how long it is, find the exact spot in the middle, and see how steep it climbs.",
   toggles: [
     { key: "triangle", label: "Show gradient triangle" },
     { key: "midpoint", label: "Show midpoint" },
@@ -102,7 +103,8 @@ const simultaneous: ConceptDefinition = {
   id: "simultaneous",
   category: "coordinate",
   title: "Simultaneous equations",
-  summary: "Two lines and their point of intersection — the solution.",
+  summary:
+    "Two lines crossing on a grid! The exact meeting point where they cross is the magic answer that works for both lines.",
   toggles: [{ key: "solution", label: "Show intersection" }],
   createScene: () =>
     makeScene({
@@ -159,7 +161,8 @@ const curveIntersections: ConceptDefinition = {
   id: "line-curve-intersection",
   category: "coordinate",
   title: "Line & curve intersections",
-  summary: "Move the line and count the intersections with a parabola.",
+  summary:
+    "See where a straight line meets a curved path! Count the crossing points or see when the line just barely touches the curve.",
   createScene: () =>
     makeScene({
       title: "Line and curve intersections",

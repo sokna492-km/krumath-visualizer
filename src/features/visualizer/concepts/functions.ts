@@ -23,7 +23,8 @@ const linear: ConceptDefinition = {
   id: "linear",
   category: "functions",
   title: "Linear",
-  summary: "y = mx + c — gradient, intercepts and the gradient triangle.",
+  summary:
+    "A straight line on a graph! You can change how steep it climbs (gradient) and where it starts on the up-and-down line (y-intercept).",
   toggles: [
     { key: "intercepts", label: "Show intercepts" },
     { key: "triangle", label: "Show gradient triangle" },
@@ -113,7 +114,8 @@ const quadratic: ConceptDefinition = {
   id: "quadratic",
   category: "functions",
   title: "Quadratic",
-  summary: "y = a(x − h)² + k — vertex form, axis of symmetry and roots.",
+  summary:
+    "A smooth U-shaped curve called a parabola! It can smile upward or frown downward, with a special turning point right at the peak called the vertex.",
   toggles: [
     { key: "vertex", label: "Show vertex" },
     { key: "axis", label: "Show axis of symmetry" },
@@ -193,7 +195,8 @@ const cubic: ConceptDefinition = {
   id: "cubic",
   category: "functions",
   title: "Cubic & polynomial",
-  summary: "y = ax³ + bx² + cx + d — turning points and inflection.",
+  summary:
+    "A curvy S-shaped roller coaster line! It twists and turns through the graph, going up high on one side and down low on the other.",
   toggles: [{ key: "stationary", label: "Show stationary points" }],
   createScene: () =>
     makeScene({
@@ -238,7 +241,8 @@ const reciprocal: ConceptDefinition = {
   id: "reciprocal",
   category: "functions",
   title: "Reciprocal",
-  summary: "y = a/(x − h) + k — asymptotes and discontinuity.",
+  summary:
+    "Two curved wings that get closer and closer to invisible guide lines, but never actually touch them!",
   toggles: [{ key: "asymptotes", label: "Show asymptotes" }],
   createScene: () =>
     makeScene({
@@ -299,7 +303,8 @@ const exponential: ConceptDefinition = {
   id: "exponential",
   category: "functions",
   title: "Exponential",
-  summary: "y = a·e^(bx) + c — growth, decay and the horizontal asymptote.",
+  summary:
+    "A rocket curve that starts off flat and suddenly blasts super high into the sky! It shows how things double or grow fast over time.",
   createScene: () =>
     makeScene({
       title: "Exponential function",
@@ -333,7 +338,8 @@ const logarithmic: ConceptDefinition = {
   id: "logarithmic",
   category: "functions",
   title: "Logarithmic",
-  summary: "y = a·log(x − h) + k — domain restriction and asymptote.",
+  summary:
+    "A gentle curve that shoots up quickly at first, then grows slowly and steadily. It is the backwards version of an exponential curve!",
   createScene: () =>
     makeScene({
       title: "Logarithmic function",
@@ -366,7 +372,8 @@ const absoluteValue: ConceptDefinition = {
   id: "absolute",
   category: "functions",
   title: "Absolute value",
-  summary: "y = a|x − h| + k — the vertex and the two branches.",
+  summary:
+    "A sharp V-shaped bounce! It makes all negative numbers turn positive, bouncing off the pointy vertex at the bottom.",
   toggles: [{ key: "vertex", label: "Show vertex" }],
   createScene: () =>
     makeScene({

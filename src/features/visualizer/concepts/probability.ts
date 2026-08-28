@@ -23,7 +23,7 @@ const coinTossSimulation: ConceptDefinition = {
   category: "probability",
   title: "Coin Toss & Law of Large Numbers",
   summary:
-    "Simulate N coin flips — observe convergence of experimental relative frequency to theoretical P(Heads) = 0.5.",
+    "Flipping coins to test your luck! The more times you flip a coin, the closer your score gets to exactly half heads and half tails.",
   toggles: [{ key: "theoretical", label: "Show theoretical line P = 0.5" }],
   createScene: () =>
     makeScene({
@@ -86,7 +86,7 @@ const diceRollSimulation: ConceptDefinition = {
   category: "probability",
   title: "Dice Roll & Uniform Distribution",
   summary:
-    "Roll a fair 6-sided die N times — uniform theoretical probability P(X = k) = 1/6 ≈ 0.167.",
+    "Rolling a 6-sided die! Because each side is fair, every single number from 1 to 6 has the exact same chance of landing on top.",
   toggles: [],
   createScene: () =>
     makeScene({

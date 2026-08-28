@@ -24,7 +24,7 @@ const unitCircleDemo: ConceptDefinition = {
   category: "trigonometry",
   title: "Unit Circle",
   summary:
-    "Point P(cos θ, sin θ) on unit circle x² + y² = 1 — trigonometric values, quadrants and right triangle.",
+    "A special circle of radius 1! Turning an angle tells you exactly how far sideways (cosine) and how far up (sine) you go.",
   toggles: [
     { key: "triangle", label: "Show reference right triangle" },
     { key: "projections", label: "Show cos θ and sin θ axis projections" },
@@ -90,7 +90,8 @@ const sineWave: ConceptDefinition = {
   id: "sine-wave",
   category: "trigonometry",
   title: "Sine Function",
-  summary: "y = a·sin(b(x − c)) + d — amplitude, period, phase shift and vertical shift.",
+  summary:
+    "A repeating smooth wave that flows up and down, just like ocean ripples or sound waves playing music!",
   toggles: [
     { key: "amplitude", label: "Show amplitude marker" },
     { key: "period", label: "Show period marker" },
@@ -139,7 +140,8 @@ const cosineWave: ConceptDefinition = {
   id: "cosine-wave",
   category: "trigonometry",
   title: "Cosine Function",
-  summary: "y = a·cos(b(x − c)) + d — cosine wave transformations.",
+  summary:
+    "A smooth wave just like the sine wave, starting at the highest peak instead of the middle!",
   toggles: [],
   createScene: () =>
     makeScene({
@@ -180,7 +182,8 @@ const tangentWave: ConceptDefinition = {
   id: "tangent-wave",
   category: "trigonometry",
   title: "Tangent Function",
-  summary: "y = a·tan(bx) — vertical asymptotes at x = (2k+1)π/(2b) and period π/b.",
+  summary:
+    "A repeating set of steep curvy slides that shoot up to the sky between invisible boundary walls!",
   toggles: [],
   createScene: () =>
     makeScene({

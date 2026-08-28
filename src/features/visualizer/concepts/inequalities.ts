@@ -23,7 +23,7 @@ const linearInequality: ConceptDefinition = {
   category: "inequalities",
   title: "Linear Inequality",
   summary:
-    "y > mx + c or y ≤ mx + c — half-plane region shading with solid or dashed boundary line.",
+    "Shading in a whole territory of winning answers! Every point in the colored zone makes the rule true, separated by a boundary line.",
   toggles: [{ key: "testpoint", label: "Show test point (0, 0)" }],
   createScene: () =>
     makeScene({
@@ -89,7 +89,8 @@ const quadraticInequality: ConceptDefinition = {
   id: "quadratic-inequality",
   category: "inequalities",
   title: "Quadratic Inequality",
-  summary: "y ≥ ax² + bx + c — interior or exterior region of a parabolic boundary.",
+  summary:
+    "Shading all the points inside or outside a curved bowl! Points inside the colored zone satisfy the quadratic inequality rule.",
   toggles: [],
   createScene: () =>
     makeScene({

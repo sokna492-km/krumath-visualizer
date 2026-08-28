@@ -22,7 +22,8 @@ const translationDemo: ConceptDefinition = {
   id: "translation",
   category: "transformations",
   title: "Translation",
-  summary: "Translate polygon by vector (dx, dy) with animated transition progress t.",
+  summary:
+    "Sliding a shape across the screen without turning it or changing its size, just like sliding a toy car along a table!",
   toggles: [
     { key: "vectors", label: "Show translation vectors" },
     { key: "labels", label: "Show image vertices A', B', C'" },
@@ -90,7 +91,7 @@ const reflectionDemo: ConceptDefinition = {
   category: "transformations",
   title: "Reflection",
   summary:
-    "Reflect polygon across mirror lines (y-axis, x-axis, y = x, or horizontal/vertical lines).",
+    "Flipping a shape across a mirror line! Everything stays the exact same size, just flipped backwards like looking in a mirror.",
   toggles: [
     { key: "mirror", label: "Show mirror line" },
     { key: "connectors", label: "Show perpendicular connecting lines" },
@@ -145,7 +146,8 @@ const rotationDemo: ConceptDefinition = {
   id: "rotation",
   category: "transformations",
   title: "Rotation",
-  summary: "Rotate polygon around center (cx, cy) by angle θ°.",
+  summary:
+    "Spinning a shape around a fixed pivot point by a number of degrees, just like the turning hands on a clock!",
   toggles: [
     { key: "center", label: "Show center of rotation" },
     { key: "arcs", label: "Show rotation trajectory arcs" },
@@ -214,7 +216,8 @@ const enlargementDemo: ConceptDefinition = {
   id: "enlargement",
   category: "transformations",
   title: "Enlargement / Dilation",
-  summary: "Enlarge polygon from center (cx, cy) with scale factor k.",
+  summary:
+    "Growing or shrinking a shape from a center point! The shape keeps its exact appearance, just zoomed in bigger or zoomed out smaller.",
   toggles: [{ key: "rays", label: "Show projection rays from center" }],
   createScene: () =>
     makeScene({

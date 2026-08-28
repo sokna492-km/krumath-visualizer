@@ -22,7 +22,8 @@ const vectorAddition: ConceptDefinition = {
   id: "vector-addition",
   category: "vectors",
   title: "Vector Addition & Parallelogram",
-  summary: "Vectors u and v — head-to-tail triangle law, parallelogram law and resultant u + v.",
+  summary:
+    "An arrow with direction and distance! Putting two arrows tip-to-tail shows where you end up altogether.",
   toggles: [
     { key: "parallelogram", label: "Show parallelogram law" },
     { key: "components", label: "Show vector components" },
@@ -112,7 +113,8 @@ const scalarMultiplication: ConceptDefinition = {
   id: "scalar-multiplication",
   category: "vectors",
   title: "Scalar Multiplication",
-  summary: "Scale vector u by scalar k — changes magnitude and reverses direction when k < 0.",
+  summary:
+    "Stretching or shrinking an arrow by a multiplier number! Multiplying by a negative number flips the arrow in reverse.",
   toggles: [],
   createScene: () =>
     makeScene({

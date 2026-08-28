@@ -270,9 +270,15 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     return scene.parameters[0];
   }, [scene.parameters]);
 
+  // Multi-touch pointer tracking for pinch-to-zoom & pan
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
+
   // Mouse / Touch Dragging
   const handlePointerDown = (id: string, e: React.PointerEvent, vertexIdx?: number) => {
     e.stopPropagation();
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     setDraggedObjectId(id);
     setPointerDownStartPos({ x: e.clientX, y: e.clientY });
@@ -285,7 +291,19 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
   };
 
   const handleCanvasPointerDown = (e: React.PointerEvent) => {
-    if (e.button === 0) {
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointersRef.current.size === 2) {
+      // Initialize pinch zoom
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStartDistRef.current = dist;
+      pinchCenterRef.current = {
+        x: (pts[0].x + pts[1].x) / 2,
+        y: (pts[0].y + pts[1].y) / 2,
+      };
+      setIsPanning(false);
+      setPanStart(null);
+    } else if (activePointersRef.current.size === 1 && e.button === 0) {
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY });
       setPointerDownStartPos({ x: e.clientX, y: e.clientY });
@@ -294,6 +312,48 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Handle 2-finger Pinch Zoom
+    if (activePointersRef.current.size >= 2 && onUpdateViewport && containerRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const currentCenter = {
+        x: (pts[0].x + pts[1].x) / 2,
+        y: (pts[0].y + pts[1].y) / 2,
+      };
+
+      if (pinchStartDistRef.current && pinchStartDistRef.current > 10 && currentDist > 10) {
+        const factor = pinchStartDistRef.current / currentDist;
+        // Limit zoom step to prevent sudden jumps
+        const clampedFactor = Math.max(0.85, Math.min(1.18, factor));
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const mouseX = currentCenter.x - rect.left;
+        const mouseY = currentCenter.y - rect.top;
+        const mathX = toMathX(mouseX);
+        const mathY = toMathY(mouseY);
+
+        const newXmin = mathX - (mathX - xmin) * clampedFactor;
+        const newXmax = mathX + (xmax - mathX) * clampedFactor;
+        const newYmin = mathY - (mathY - ymin) * clampedFactor;
+        const newYmax = mathY + (ymax - mathY) * clampedFactor;
+
+        if (newXmax - newXmin > 0.05 && newXmax - newXmin < 500) {
+          onUpdateViewport({
+            xmin: newXmin,
+            xmax: newXmax,
+            ymin: newYmin,
+            ymax: newYmax,
+          });
+        }
+        pinchStartDistRef.current = currentDist;
+      }
+      return;
+    }
+
     if (pointerDownStartPos) {
       const dist = Math.hypot(e.clientX - pointerDownStartPos.x, e.clientY - pointerDownStartPos.y);
       if (dist > 4) {
@@ -383,12 +443,21 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e?: React.PointerEvent) => {
+    if (e) {
+      activePointersRef.current.delete(e.pointerId);
+    } else {
+      activePointersRef.current.clear();
+    }
+    if (activePointersRef.current.size < 2) {
+      pinchStartDistRef.current = null;
+      pinchCenterRef.current = null;
+    }
     if (draggedObjectId) {
       setDraggedObjectId(null);
       setDragVertexIndex(null);
     }
-    if (isPanning) {
+    if (isPanning && activePointersRef.current.size === 0) {
       setIsPanning(false);
       setPanStart(null);
     }
@@ -556,6 +625,120 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
       e.stopPropagation();
       setIsDraggingThickness(false);
     }
+  };
+
+  // Helper: Smart collision-aware Badge Renderer for labels and values
+  const renderSmartPill = (
+    text: string,
+    anchorX: number,
+    anchorY: number,
+    options: {
+      color?: string;
+      direction?:
+        | "top-right"
+        | "top-left"
+        | "bottom-right"
+        | "bottom-left"
+        | "top"
+        | "bottom"
+        | "left"
+        | "right";
+      fontSize?: number;
+      fontWeight?: string;
+      offset?: number;
+      badgeStyle?: "solid" | "subtle" | "none";
+      onClick?: () => void;
+      className?: string;
+    } = {},
+  ) => {
+    const {
+      color = "var(--color-foreground)",
+      direction = "top-right",
+      fontSize = Math.max(10, Math.round(11 * Math.sqrt(effectiveScale))),
+      fontWeight = "600",
+      offset = 8,
+      badgeStyle = "solid",
+      onClick,
+      className = "",
+    } = options;
+
+    const charWidth = fontSize * 0.58;
+    const paddingX = 6;
+    const paddingY = 3;
+    const pillWidth = Math.round(text.length * charWidth + paddingX * 2);
+    const pillHeight = Math.round(fontSize + paddingY * 2 + 2);
+
+    let rawX = anchorX;
+    let rawY = anchorY;
+
+    switch (direction) {
+      case "top-right":
+        rawX = anchorX + offset;
+        rawY = anchorY - pillHeight - offset;
+        break;
+      case "top-left":
+        rawX = anchorX - pillWidth - offset;
+        rawY = anchorY - pillHeight - offset;
+        break;
+      case "bottom-right":
+        rawX = anchorX + offset;
+        rawY = anchorY + offset;
+        break;
+      case "bottom-left":
+        rawX = anchorX - pillWidth - offset;
+        rawY = anchorY + offset;
+        break;
+      case "top":
+        rawX = anchorX - pillWidth / 2;
+        rawY = anchorY - pillHeight - offset;
+        break;
+      case "bottom":
+        rawX = anchorX - pillWidth / 2;
+        rawY = anchorY + offset;
+        break;
+      case "left":
+        rawX = anchorX - pillWidth - offset;
+        rawY = anchorY - pillHeight / 2;
+        break;
+      case "right":
+        rawX = anchorX + offset;
+        rawY = anchorY - pillHeight / 2;
+        break;
+    }
+
+    // Responsive screen bounds clamping with margin
+    const margin = 8;
+    const clampedX = Math.max(margin, Math.min(size.width - pillWidth - margin, rawX));
+    const clampedY = Math.max(margin, Math.min(size.height - pillHeight - margin, rawY));
+
+    return (
+      <g className={`select-none pointer-events-none ${className}`} onClick={onClick}>
+        {badgeStyle !== "none" && (
+          <rect
+            x={clampedX}
+            y={clampedY}
+            width={pillWidth}
+            height={pillHeight}
+            rx={4}
+            fill="var(--color-card)"
+            fillOpacity={badgeStyle === "solid" ? 0.94 : 0.85}
+            stroke="var(--color-border)"
+            strokeWidth={1}
+            className="shadow-2xs"
+          />
+        )}
+        <text
+          x={clampedX + pillWidth / 2}
+          y={clampedY + pillHeight / 2 + fontSize * 0.35}
+          fill={color}
+          fontSize={fontSize}
+          fontWeight={fontWeight}
+          textAnchor="middle"
+        >
+          {text}
+        </text>
+      </g>
+    );
   };
 
   // Helper function to resolve point coordinates
@@ -877,7 +1060,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     );
   };
 
-  // Render Interactive Function Intercepts (Y-Intercept & X-Intercepts) with dynamic scaling
+  // Render Interactive Function Intercepts (Y-Intercept & X-Intercepts) with dynamic collision resolution
   const renderFunctionIntercepts = () => {
     const interceptElements: React.ReactNode[] = [];
     const visibleFunctions = scene.objects.filter(
@@ -888,174 +1071,179 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     const markerStrokeWidth = Math.max(2, Math.round(2 * Math.sqrt(effectiveScale)));
     const haloRadius = Math.max(12, Math.round(14 * Math.sqrt(effectiveScale)));
     const tagFontSize = Math.max(9, Math.round(10 * Math.min(1.5, Math.sqrt(effectiveScale))));
-    const tagWidth = Math.round(56 * Math.min(1.4, Math.sqrt(effectiveScale)));
-    const tagHeight = Math.round(18 * Math.min(1.4, Math.sqrt(effectiveScale)));
 
     visibleFunctions.forEach((fnObj, fnIdx) => {
       const f = makePlotFunction(fnObj.expr, () => scope);
 
-      // 1. Y-Intercept: (0, f(0))
+      // Collect potential intercepts for this function
+      let yInterceptData: { sx: number; sy: number; y0: number; id: string } | null = null;
       if (0 >= xmin && 0 <= xmax) {
         const y0 = f(0);
         if (Number.isFinite(y0) && y0 >= ymin - 5 && y0 <= ymax + 5) {
-          const sx = toScreenX(0);
-          const sy = toScreenY(y0);
-          const interceptId = `__intercept_y_${fnObj.id}_${fnIdx}`;
-
-          interceptElements.push(
-            <g
-              key={interceptId}
-              className="cursor-grab active:cursor-grabbing group select-none"
-              onPointerDown={(e) => handlePointerDown(interceptId, e)}
-              onClick={() => {
-                if (!hasDraggedSignificantly) {
-                  handleOpenExactEditor({
-                    type: "y-intercept",
-                    title: "Edit Y-Intercept",
-                    currentY: y0,
-                    currentX: 0,
-                    label: `y-intercept (0, ${formatNumber(y0, 2)})`,
-                  });
-                }
-              }}
-              onPointerEnter={() =>
-                setHoverInfo({
-                  x: 0,
-                  y: y0,
-                  screenX: sx,
-                  screenY: sy,
-                  label: `Y-Intercept (0, ${formatNumber(y0, 2)}) • Click to set value, drag to shift`,
-                  sourceType: "point",
-                  color: "#dc2626",
-                })
-              }
-              onPointerLeave={() => setHoverInfo(null)}
-            >
-              {/* Outer Glow Halo on Hover */}
-              <circle
-                cx={sx}
-                cy={sy}
-                r={haloRadius}
-                fill="#dc2626"
-                fillOpacity={0.15}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-              <circle
-                cx={sx}
-                cy={sy}
-                r={markerRadius}
-                fill="#dc2626"
-                stroke="#ffffff"
-                strokeWidth={markerStrokeWidth}
-                className="shadow-sm"
-              />
-              {/* Intercept Label Tag */}
-              <rect
-                x={sx + 8}
-                y={sy - tagHeight - 4}
-                width={tagWidth}
-                height={tagHeight}
-                rx={4}
-                fill="var(--color-card)"
-                stroke="var(--color-border)"
-                strokeWidth={1}
-                className="opacity-90 group-hover:opacity-100"
-              />
-              <text
-                x={sx + 8 + tagWidth / 2}
-                y={sy - 8}
-                fill="#dc2626"
-                fontSize={tagFontSize}
-                fontWeight="bold"
-                textAnchor="middle"
-              >
-                (0, {formatNumber(y0, 1)})
-              </text>
-            </g>,
-          );
+          yInterceptData = {
+            sx: toScreenX(0),
+            sy: toScreenY(y0),
+            y0,
+            id: `__intercept_y_${fnObj.id}_${fnIdx}`,
+          };
         }
       }
 
-      // 2. X-Intercepts (Roots): (root, 0)
-      const roots = findRoots(f, xmin, xmax, 400);
-      roots.forEach((root, rIdx) => {
-        if (Math.abs(root) > 1e-4) {
-          const sx = toScreenX(root);
-          const sy = toScreenY(0);
-          const rootId = `__intercept_x_${fnObj.id}_${rIdx}`;
+      const rawRoots = findRoots(f, xmin, xmax, 400);
+      const rootList = rawRoots.map((root, rIdx) => ({
+        root,
+        sx: toScreenX(root),
+        sy: toScreenY(0),
+        id: `__intercept_x_${fnObj.id}_${rIdx}`,
+        rIdx,
+      }));
 
-          interceptElements.push(
-            <g
-              key={rootId}
-              className="cursor-grab active:cursor-grabbing group select-none"
-              onPointerDown={(e) => handlePointerDown(rootId, e)}
-              onClick={() => {
-                if (!hasDraggedSignificantly) {
-                  handleOpenExactEditor({
-                    type: "x-intercept",
-                    title: "Edit X-Intercept (Root)",
-                    currentX: root,
-                    currentY: 0,
-                    label: `x-intercept (${formatNumber(root, 2)}, 0)`,
-                  });
-                }
-              }}
-              onPointerEnter={() =>
-                setHoverInfo({
-                  x: root,
-                  y: 0,
-                  screenX: sx,
-                  screenY: sy,
-                  label: `X-Intercept (${formatNumber(root, 2)}, 0) • Click to set value, drag to shift`,
-                  sourceType: "point",
-                  color: "#16a34a",
-                })
-              }
-              onPointerLeave={() => setHoverInfo(null)}
-            >
-              {/* Outer Glow Halo on Hover */}
-              <circle
-                cx={sx}
-                cy={sy}
-                r={haloRadius}
-                fill="#16a34a"
-                fillOpacity={0.15}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-              <circle
-                cx={sx}
-                cy={sy}
-                r={markerRadius}
-                fill="#16a34a"
-                stroke="#ffffff"
-                strokeWidth={markerStrokeWidth}
-                className="shadow-sm"
-              />
-              {/* Intercept Label Tag */}
-              <rect
-                x={sx - tagWidth / 2}
-                y={sy + 8}
-                width={tagWidth}
-                height={tagHeight}
-                rx={4}
-                fill="var(--color-card)"
-                stroke="var(--color-border)"
-                strokeWidth={1}
-                className="opacity-90 group-hover:opacity-100"
-              />
-              <text
-                x={sx}
-                y={sy + 8 + tagHeight - 5}
-                fill="#16a34a"
-                fontSize={tagFontSize}
-                fontWeight="bold"
-                textAnchor="middle"
-              >
-                ({formatNumber(root, 1)}, 0)
-              </text>
-            </g>,
-          );
+      // Check for proximity between Y-intercept and any Root (especially near origin (0, 0))
+      let yInterceptDir: "top-left" | "top-right" | "right" | "left" = "top-right";
+      const rootDirections: Array<"bottom" | "top" | "bottom-right" | "bottom-left"> = [];
+
+      rootList.forEach((r, idx) => {
+        let dir: "bottom" | "top" | "bottom-right" | "bottom-left" =
+          idx % 2 === 0 ? "bottom" : "top";
+
+        if (yInterceptData) {
+          const distToY = Math.hypot(r.sx - yInterceptData.sx, r.sy - yInterceptData.sy);
+          if (distToY < 48) {
+            // Collision between Y-intercept and X-intercept near origin!
+            // Assign opposing non-overlapping quadrants
+            yInterceptDir = "top-left";
+            dir = "bottom-right";
+          }
         }
+        rootDirections.push(dir);
+      });
+
+      // 1. Render Y-Intercept
+      if (yInterceptData) {
+        const { sx, sy, y0, id } = yInterceptData;
+        interceptElements.push(
+          <g
+            key={id}
+            className="cursor-grab active:cursor-grabbing group select-none"
+            onPointerDown={(e) => handlePointerDown(id, e)}
+            onClick={() => {
+              if (!hasDraggedSignificantly) {
+                handleOpenExactEditor({
+                  type: "y-intercept",
+                  title: "Edit Y-Intercept",
+                  currentY: y0,
+                  currentX: 0,
+                  label: `y-intercept (0, ${formatNumber(y0, 2)})`,
+                });
+              }
+            }}
+            onPointerEnter={() =>
+              setHoverInfo({
+                x: 0,
+                y: y0,
+                screenX: sx,
+                screenY: sy,
+                label: `Y-Intercept (0, ${formatNumber(y0, 2)}) • Click to set value, drag to shift`,
+                sourceType: "point",
+                color: "#dc2626",
+              })
+            }
+            onPointerLeave={() => setHoverInfo(null)}
+          >
+            {/* Outer Glow Halo on Hover */}
+            <circle
+              cx={sx}
+              cy={sy}
+              r={haloRadius}
+              fill="#dc2626"
+              fillOpacity={0.15}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            />
+            <circle
+              cx={sx}
+              cy={sy}
+              r={markerRadius}
+              fill="#dc2626"
+              stroke="#ffffff"
+              strokeWidth={markerStrokeWidth}
+              className="shadow-sm"
+            />
+            {/* Intercept Label Tag with Collision Avoidance */}
+            {renderSmartPill(`(0, ${formatNumber(y0, 1)})`, sx, sy, {
+              color: "#dc2626",
+              direction: yInterceptDir,
+              fontSize: tagFontSize,
+              fontWeight: "bold",
+              offset: 8,
+              badgeStyle: "solid",
+            })}
+          </g>,
+        );
+      }
+
+      // 2. Render X-Intercepts (Roots)
+      rootList.forEach((r, idx) => {
+        const { sx, sy, root, id } = r;
+        const dir = rootDirections[idx] || "bottom";
+
+        interceptElements.push(
+          <g
+            key={id}
+            className="cursor-grab active:cursor-grabbing group select-none"
+            onPointerDown={(e) => handlePointerDown(id, e)}
+            onClick={() => {
+              if (!hasDraggedSignificantly) {
+                handleOpenExactEditor({
+                  type: "x-intercept",
+                  title: "Edit X-Intercept (Root)",
+                  currentX: root,
+                  currentY: 0,
+                  label: `x-intercept (${formatNumber(root, 2)}, 0)`,
+                });
+              }
+            }}
+            onPointerEnter={() =>
+              setHoverInfo({
+                x: root,
+                y: 0,
+                screenX: sx,
+                screenY: sy,
+                label: `X-Intercept (${formatNumber(root, 2)}, 0) • Click to set value, drag to shift`,
+                sourceType: "point",
+                color: "#16a34a",
+              })
+            }
+            onPointerLeave={() => setHoverInfo(null)}
+          >
+            {/* Outer Glow Halo on Hover */}
+            <circle
+              cx={sx}
+              cy={sy}
+              r={haloRadius}
+              fill="#16a34a"
+              fillOpacity={0.15}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            />
+            <circle
+              cx={sx}
+              cy={sy}
+              r={markerRadius}
+              fill="#16a34a"
+              stroke="#ffffff"
+              strokeWidth={markerStrokeWidth}
+              className="shadow-sm"
+            />
+            {/* Root Label Tag with Collision Avoidance */}
+            {renderSmartPill(`(${formatNumber(root, 1)}, 0)`, sx, sy, {
+              color: "#16a34a",
+              direction: dir,
+              fontSize: tagFontSize,
+              fontWeight: "bold",
+              offset: 8,
+              badgeStyle: "solid",
+            })}
+          </g>,
+        );
       });
     });
 
@@ -1184,6 +1372,20 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           });
         };
 
+        // Determine optimal direction for point label avoiding borders
+        let ptDir: "top-right" | "top-left" | "bottom-right" | "bottom-left" = "top-right";
+        if (sx > size.width - 90) {
+          ptDir = sy < 60 ? "bottom-left" : "top-left";
+        } else if (sy < 50) {
+          ptDir = "bottom-right";
+        }
+
+        const labelText = ptObj.label
+          ? `${ptObj.label}${ptObj.showCoords ? ` (${formatNumber(x, 1)}, ${formatNumber(y, 1)})` : ""}`
+          : ptObj.showCoords
+            ? `(${formatNumber(x, 1)}, ${formatNumber(y, 1)})`
+            : "";
+
         return (
           <g
             key={obj.id}
@@ -1220,18 +1422,15 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               stroke="#ffffff"
               strokeWidth={ptStroke}
             />
-            {ptObj.label && (
-              <text
-                x={sx + 10}
-                y={sy - 10}
-                fill={color}
-                fontSize={ptFontSize}
-                fontWeight="semibold"
-                className="select-none"
-              >
-                {ptObj.label} {ptObj.showCoords ? `(${formatNumber(x)}, ${formatNumber(y)})` : ""}
-              </text>
-            )}
+            {labelText &&
+              renderSmartPill(labelText, sx, sy, {
+                color,
+                direction: ptDir,
+                fontSize: ptFontSize,
+                fontWeight: "bold",
+                offset: 8,
+                badgeStyle: "solid",
+              })}
           </g>
         );
       }
@@ -1334,15 +1533,19 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               onPointerEnter={handleGliderHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
-            <text
-              x={sx + 10}
-              y={sy - 10}
-              fill="#dc2626"
-              fontSize={gliderFontSize}
-              fontWeight="bold"
-            >
-              {gliderObj.label || "P"} ({formatApprox(x)}, {formatApprox(y)})
-            </text>
+            {renderSmartPill(
+              `${gliderObj.label || "P"} (${formatApprox(x)}, ${formatApprox(y)})`,
+              sx,
+              sy,
+              {
+                color: "#dc2626",
+                direction: "top-right",
+                fontSize: gliderFontSize,
+                fontWeight: "bold",
+                offset: 8,
+                badgeStyle: "solid",
+              },
+            )}
           </g>
         );
       }
@@ -1387,6 +1590,37 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           });
         };
 
+        // Determine smart direction for line labels (rise, run, slope triangles, segments)
+        const isRun =
+          lineObj.id === "run" || (lineObj.label && lineObj.label.toLowerCase().includes("run"));
+        const isRise =
+          lineObj.id === "rise" || (lineObj.label && lineObj.label.toLowerCase().includes("rise"));
+
+        let midSx = (sx1 + sx2) / 2;
+        const midSy = (sy1 + sy2) / 2;
+        let lineDir: "bottom" | "top" | "right" | "left" | "top-right" = "top-right";
+
+        if (isRun) {
+          lineDir = "bottom";
+        } else if (isRise) {
+          const dy = Math.abs(sy2 - sy1);
+          if (dy < 18) {
+            // When slope is near 0 or rise is tiny, shift to right to avoid overlapping run
+            midSx += 24;
+            lineDir = "top-right";
+          } else {
+            lineDir = "right";
+          }
+        } else {
+          // General segment: check angle
+          const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
+          if (Math.abs(Math.sin(angle)) < 0.3) {
+            lineDir = "top";
+          } else {
+            lineDir = "top-right";
+          }
+        }
+
         return (
           <g key={obj.id}>
             <line
@@ -1413,17 +1647,15 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               onPointerMove={handleLineHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
-            {lineObj.label && (
-              <text
-                x={(sx1 + sx2) / 2 + 8}
-                y={(sy1 + sy2) / 2 - 8}
-                fill={color}
-                fontSize={lineFontSize}
-                fontWeight="semibold"
-              >
-                {lineObj.label}
-              </text>
-            )}
+            {lineObj.label &&
+              renderSmartPill(lineObj.label, midSx, midSy, {
+                color,
+                direction: lineDir,
+                fontSize: lineFontSize,
+                fontWeight: "semibold",
+                offset: 8,
+                badgeStyle: "solid",
+              })}
           </g>
         );
       }
@@ -1589,6 +1821,19 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               const svx = toScreenX(vx);
               const svy = toScreenY(vy);
               const lbl = polyObj.vertexLabels?.[idx] || String.fromCharCode(65 + idx);
+
+              // Orient label outward from polygon center
+              const centerMathX = pts.reduce((acc, p) => acc + p[0], 0) / pts.length;
+              const centerMathY = pts.reduce((acc, p) => acc + p[1], 0) / pts.length;
+              const vDir: "top-right" | "top-left" | "bottom-right" | "bottom-left" =
+                vx >= centerMathX
+                  ? vy >= centerMathY
+                    ? "top-right"
+                    : "bottom-right"
+                  : vy >= centerMathY
+                    ? "top-left"
+                    : "bottom-left";
+
               return (
                 <g
                   key={`v-${idx}`}
@@ -1615,16 +1860,19 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                     stroke="#ffffff"
                     strokeWidth={Math.max(2, Math.round(2 * Math.sqrt(effectiveScale)))}
                   />
-                  <text
-                    x={svx + 10}
-                    y={svy - 10}
-                    fill={color}
-                    fontSize={polyFontSize}
-                    fontWeight="bold"
-                    className="select-none"
-                  >
-                    {lbl} ({formatNumber(vx, 1)}, {formatNumber(vy, 1)})
-                  </text>
+                  {renderSmartPill(
+                    `${lbl} (${formatNumber(vx, 1)}, ${formatNumber(vy, 1)})`,
+                    svx,
+                    svy,
+                    {
+                      color,
+                      direction: vDir,
+                      fontSize: polyFontSize,
+                      fontWeight: "bold",
+                      offset: 6,
+                      badgeStyle: "solid",
+                    },
+                  )}
                 </g>
               );
             })}
@@ -1704,16 +1952,14 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                     stroke="#ffffff"
                     strokeWidth={1.5}
                   />
-                  <text
-                    x={svx + 10}
-                    y={svy - 10}
-                    fill={color}
-                    fontSize={trFontSize}
-                    fontWeight="bold"
-                    className="select-none"
-                  >
-                    {lbl}
-                  </text>
+                  {renderSmartPill(lbl, svx, svy, {
+                    color,
+                    direction: "top-right",
+                    fontSize: trFontSize,
+                    fontWeight: "bold",
+                    offset: 6,
+                    badgeStyle: "solid",
+                  })}
                 </g>
               );
             })}
@@ -1790,17 +2036,15 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               onPointerMove={handleVectorHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
-            {vecObj.label && (
-              <text
-                x={(sx1 + sx2) / 2 + 10}
-                y={(sy1 + sy2) / 2 - 10}
-                fill={color}
-                fontSize={vecFontSize}
-                fontWeight="bold"
-              >
-                {vecObj.label}
-              </text>
-            )}
+            {vecObj.label &&
+              renderSmartPill(vecObj.label, (sx1 + sx2) / 2, (sy1 + sy2) / 2, {
+                color,
+                direction: "top-right",
+                fontSize: vecFontSize,
+                fontWeight: "bold",
+                offset: 8,
+                badgeStyle: "solid",
+              })}
           </g>
         );
       }
@@ -1937,7 +2181,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     <div
       ref={containerRef}
       id="math-graph-visualization-area"
-      className={`relative w-full h-full min-h-[450px] bg-background border rounded-xl shadow-xs overflow-hidden select-none ${
+      className={`relative w-full h-full min-h-[280px] sm:min-h-[380px] bg-background border rounded-xl shadow-xs overflow-hidden select-none touch-none ${
         isPanning ? "cursor-grabbing" : "cursor-grab"
       }`}
       onPointerDown={handleCanvasPointerDown}
@@ -1950,28 +2194,28 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
       }}
       onWheel={handleWheel}
     >
-      {/* Floating Graph Toolbar: Reset View, Zoom, Grid, Fullscreen */}
+      {/* Floating Graph Toolbar: Reset View, Zoom, Grid, Fullscreen in Bottom-Left */}
       <div
         id="graph-floating-controls-toolbar"
-        className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-card/90 backdrop-blur-md border border-border shadow-md rounded-lg p-1"
+        className="absolute bottom-2.5 left-2.5 sm:bottom-3 sm:left-3 z-30 flex items-center gap-0.5 sm:gap-1 bg-card/95 backdrop-blur-md border border-border shadow-md rounded-lg p-0.5 sm:p-1 max-w-[calc(100%-80px)] overflow-x-auto no-scrollbar"
       >
         {/* Reset View Button */}
         <button
           onClick={handleResetView}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0"
           title="Reset View to Default Coordinates"
           aria-label="Reset View"
         >
-          <RotateCcw className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[11px]">Reset View</span>
+          <RotateCcw className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-[11px] hidden sm:inline">Reset View</span>
         </button>
 
-        <div className="w-[1px] h-4 bg-border/80 mx-0.5" />
+        <div className="w-[1px] h-3.5 sm:h-4 bg-border/80 mx-0.5 shrink-0" />
 
         {/* Zoom In */}
         <button
           onClick={() => handleLocalZoom(0.8)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+          className="p-1 sm:p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0"
           title="Zoom In (+)"
           aria-label="Zoom In"
         >
@@ -1981,7 +2225,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         {/* Zoom Out */}
         <button
           onClick={() => handleLocalZoom(1.25)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
+          className="p-1 sm:p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0"
           title="Zoom Out (-)"
           aria-label="Zoom Out"
         >
@@ -1992,7 +2236,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         {onToggleGrid && (
           <button
             onClick={onToggleGrid}
-            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+            className={`p-1 sm:p-1.5 rounded-md transition-colors cursor-pointer shrink-0 ${
               scene.settings?.showGrid
                 ? "text-primary bg-primary/10"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -2004,12 +2248,12 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           </button>
         )}
 
-        <div className="w-[1px] h-4 bg-border/80 mx-0.5" />
+        <div className="w-[1px] h-3.5 sm:h-4 bg-border/80 mx-0.5 shrink-0" />
 
         {/* Full Screen Button */}
         <button
           onClick={handleToggleFullscreen}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
             isFullscreen
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -2019,13 +2263,13 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         >
           {isFullscreen ? (
             <>
-              <Minimize2 className="h-3.5 w-3.5" />
-              <span className="text-[11px]">Exit</span>
+              <Minimize2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-[11px] hidden sm:inline">Exit</span>
             </>
           ) : (
             <>
-              <Maximize className="h-3.5 w-3.5 text-primary" />
-              <span className="text-[11px]">Full Screen</span>
+              <Maximize className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-[11px] hidden sm:inline">Full Screen</span>
             </>
           )}
         </button>

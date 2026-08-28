@@ -22,7 +22,8 @@ const interactiveTriangle: ConceptDefinition = {
   id: "triangle-properties",
   category: "geometry",
   title: "Triangle & Angles",
-  summary: "Drag vertices A, B, C — live side lengths, interior angles, perimeter and area.",
+  summary:
+    "A three-sided shape whose three inside corners always add up to 180 degrees! Drag the corners around to watch the angles and area change.",
   toggles: [
     { key: "angles", label: "Show interior angle measurements" },
     { key: "lengths", label: "Show side lengths" },
@@ -94,7 +95,8 @@ const circleGeometry: ConceptDefinition = {
   id: "circle-tangent",
   category: "geometry",
   title: "Circle & Tangent Line",
-  summary: "(x − h)² + (y − k)² = r² — radius, circumference, area and tangent at angle θ.",
+  summary:
+    "A round shape where every point on the ring is the exact same distance from the center! A tangent is a line that gently touches the ring at just one spot.",
   toggles: [
     { key: "radius", label: "Show radius line" },
     { key: "tangent", label: "Show tangent line at P" },

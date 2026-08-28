@@ -20,7 +20,6 @@ import { TopTopicNavBar } from "@/features/visualizer/components/TopTopicNavBar"
 import { ConceptSidebar } from "@/features/visualizer/components/ConceptSidebar";
 import { VisualizerCanvas } from "@/features/visualizer/components/VisualizerCanvas";
 import { ParameterPanel } from "@/features/visualizer/components/ParameterPanel";
-import { ReadoutsPanel } from "@/features/visualizer/components/ReadoutsPanel";
 import { FlagsPanel } from "@/features/visualizer/components/FlagsPanel";
 import { EquationEditor } from "@/features/visualizer/components/EquationEditor";
 import { SceneStorageModal } from "@/features/visualizer/components/SceneStorageModal";
@@ -35,12 +34,12 @@ import {
   Play,
   Pause,
   Download,
-  PanelLeftOpen,
-  PanelLeftClose,
-  PanelRightOpen,
-  PanelRightClose,
+  ChevronLeft,
+  ChevronRight,
   SlidersHorizontal,
   Layers,
+  LineChart,
+  X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -55,6 +54,7 @@ function Index() {
   const [activeCategory, setActiveCategory] = useState<CategoryId>(() => defaultConcept.category);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [mobileDrawer, setMobileDrawer] = useState<"none" | "subtopics" | "controls">("none");
   const [scene, setScene] = useState<MathScene>(() => defaultConcept.createScene());
   const [isDark, setIsDark] = useState(false);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
@@ -347,16 +347,74 @@ function Index() {
   return (
     <div
       ref={mainContainerRef}
-      className={`h-screen w-screen overflow-hidden flex flex-col bg-background text-foreground transition-colors duration-150 ${
+      className={`h-[100dvh] w-full max-w-full overflow-hidden flex flex-col bg-background text-foreground transition-colors duration-150 overscroll-none select-none ${
         isDark ? "dark" : ""
       }`}
     >
-      {/* Top Auto-Hiding Navigation Bar Header (Pushes content down when hovered) */}
+      {/* Mobile Top Header (Always visible on mobile < md for seamless touch access) */}
+      {!isPresentationMode && (
+        <header className="md:hidden h-12 px-3 border-b border-border bg-card/95 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 rounded-lg bg-primary text-primary-foreground shadow-xs shrink-0">
+              <Compass className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-sm leading-none tracking-tight text-foreground flex items-center gap-1">
+                <span>KRUMATH</span>
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Save / Lessons */}
+            <button
+              onClick={() => setStorageModalOpen(true)}
+              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-foreground transition-colors cursor-pointer"
+              title="Saved Lessons"
+              aria-label="Saved Lessons"
+            >
+              <FolderOpen className="h-4 w-4 text-primary" />
+            </button>
+
+            {/* Export PNG */}
+            <button
+              onClick={handleExportImage}
+              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Export Snapshot PNG"
+              aria-label="Export Snapshot PNG"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+
+            {/* Fullscreen Presentation Mode */}
+            <button
+              onClick={togglePresentationMode}
+              className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
+              title="Present Fullscreen"
+              aria-label="Present Fullscreen"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Toggle Theme"
+              aria-label="Toggle Theme"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* Desktop Auto-Hiding Navigation Bar Header */}
       {!isPresentationMode && (
         <div
           onMouseEnter={handleNavMouseEnter}
           onMouseLeave={handleNavMouseLeave}
-          className="relative shrink-0 z-30 transition-all duration-300 ease-in-out"
+          className="hidden md:block relative shrink-0 z-30 transition-all duration-300 ease-in-out"
         >
           {/* Top Edge Hover Trigger Strip */}
           <div
@@ -366,7 +424,7 @@ function Index() {
             }`}
           />
 
-          {/* Sliding Navigation Header (Animates height to push down topics & canvas) */}
+          {/* Sliding Navigation Header */}
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out ${
               isNavHovered
@@ -382,11 +440,11 @@ function Index() {
                 <div>
                   <h1 className="font-bold text-base leading-tight tracking-tight text-foreground flex items-center gap-1.5">
                     <span>KRUMATH</span>
-                    <span className="font-medium text-xs text-muted-foreground hidden sm:inline">
+                    <span className="font-medium text-xs text-muted-foreground">
                       Math Visualizer
                     </span>
                   </h1>
-                  <p className="text-[11px] text-muted-foreground hidden md:block">
+                  <p className="text-[11px] text-muted-foreground hidden lg:block">
                     Teacher Interactive Presentation & Demonstration Workbench
                   </p>
                 </div>
@@ -399,7 +457,7 @@ function Index() {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-input bg-background hover:bg-accent transition-colors shadow-2xs cursor-pointer"
                 >
                   <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Lessons</span>
+                  <span>Lessons</span>
                 </button>
 
                 {/* Export PNG */}
@@ -418,7 +476,7 @@ function Index() {
                   title="Enter Presentation Mode (Key: F)"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Present</span>
+                  <span>Present</span>
                 </button>
 
                 {/* Theme Toggle */}
@@ -435,128 +493,153 @@ function Index() {
         </div>
       )}
 
-      {/* Top Main Topics Navigation Bar (Always visible, smoothly pushed down by nav bar) */}
+      {/* Top Main Topics Navigation Bar (Always visible) */}
       {!isPresentationMode && (
         <TopTopicNavBar activeCategory={activeCategory} onSelectCategory={handleSelectCategory} />
       )}
 
       {/* Main Presentation / Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden relative min-h-0">
-        {/* Sub-Topics Left Vertical Sidebar (Hidden in Presentation Mode) */}
+      <div className="flex-1 flex overflow-hidden relative min-h-0 w-full">
+        {/* Desktop Left Sidebar (Visible >= md) */}
         {!isPresentationMode && sidebarOpen && (
-          <>
-            <div
-              className={`fixed inset-y-0 left-0 z-30 transform md:relative md:translate-x-0 transition-transform duration-200 ease-in-out shrink-0 h-full ${
-                sidebarOpen ? "translate-x-0" : "-translate-x-full"
-              }`}
+          <div className="hidden md:block relative shrink-0 h-full">
+            {/* Full Height Vertical Collapse Tab Handle for Sub-topics */}
+            <button
+              id="toggle-subtopics-panel-btn"
+              onClick={() => setSidebarOpen(false)}
+              className="absolute -right-3.5 top-0 bottom-0 z-30 w-4.5 bg-card/95 hover:bg-accent border-y border-r border-border shadow-xs hover:shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer group select-none"
+              title="Collapse Sub-topics"
+              aria-label="Collapse Sub-topics"
             >
+              <div className="w-full h-16 rounded-full flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                <ChevronLeft className="h-5 w-5 stroke-[2.5] text-foreground group-hover:text-primary group-hover:-translate-x-0.5 transition-all" />
+              </div>
+            </button>
+
+            <ConceptSidebar
+              activeCategory={activeCategory}
+              selectedConceptId={currentConcept.id}
+              onSelectConcept={handleSelectConcept}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Mobile Sub-topics Slide-Over Drawer (< lg) */}
+        {!isPresentationMode && mobileDrawer === "subtopics" && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
+              onClick={() => setMobileDrawer("none")}
+            />
+            {/* Drawer Content */}
+            <div className="relative w-80 max-w-[85vw] h-full bg-card shadow-2xl z-10 flex flex-col animate-in slide-in-from-left duration-200">
               <ConceptSidebar
                 activeCategory={activeCategory}
                 selectedConceptId={currentConcept.id}
                 onSelectConcept={(concept) => {
                   handleSelectConcept(concept);
+                  setMobileDrawer("none");
                 }}
-                onClose={() => setSidebarOpen(false)}
+                onClose={() => setMobileDrawer("none")}
               />
             </div>
-
-            {/* Mobile Backdrop */}
-            <div
-              className="fixed inset-0 bg-background/80 backdrop-blur-xs z-20 md:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          </>
+          </div>
         )}
 
-        {/* Content Canvas Area - 100% Full Width and Height without outer scrolling */}
+        {/* Content Canvas Area */}
         <div
           className={`flex-1 flex flex-col min-w-0 h-full overflow-hidden ${
-            isPresentationMode ? "p-3" : "lg:flex-row p-3 gap-3"
+            isPresentationMode ? "p-2 sm:p-3" : "lg:flex-row p-2 sm:p-3 gap-2 sm:gap-3"
           }`}
         >
-          {/* Main Visualizer Canvas & Readouts Column */}
-          <div className="flex-1 flex flex-col gap-2 min-w-0 min-h-0 h-full relative">
-            {/* Floating Expand Sub-topics button when collapsed */}
+          {/* Main Visualizer Canvas Column */}
+          <div className="flex-1 flex flex-col gap-1.5 sm:gap-2 min-w-0 min-h-0 h-full relative">
+            {/* Desktop Full Height Vertical Expand Sub-topics Tab Handle */}
             {!isPresentationMode && !sidebarOpen && (
               <button
+                id="expand-subtopics-panel-btn"
                 onClick={() => setSidebarOpen(true)}
-                className="absolute left-3 top-3 z-20 p-2 rounded-lg bg-card/90 backdrop-blur-md border border-border shadow-md text-muted-foreground hover:text-foreground hover:bg-accent flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer"
+                className="hidden md:flex absolute left-0 top-0 bottom-0 z-20 w-4.5 bg-card/95 hover:bg-accent border-y border-r border-border shadow-xs hover:shadow-md items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer group select-none"
                 title="Expand Sub-topics"
                 aria-label="Expand Sub-topics"
               >
-                <PanelLeftOpen className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">Sub-topics</span>
+                <div className="w-full h-16 rounded-full flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                  <ChevronRight className="h-5 w-5 stroke-[2.5] text-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
               </button>
             )}
 
-            {/* Floating Expand Formulas & Controls button when collapsed */}
+            {/* Desktop Full Height Vertical Expand Formulas & Controls Tab Handle */}
             {!isPresentationMode && !rightPanelOpen && (
               <button
+                id="expand-formulas-panel-btn"
                 onClick={() => setRightPanelOpen(true)}
-                className="absolute right-3 top-3 z-20 p-2 rounded-lg bg-card/90 backdrop-blur-md border border-border shadow-md text-muted-foreground hover:text-foreground hover:bg-accent flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer"
+                className="hidden lg:flex absolute right-0 top-0 bottom-0 z-20 w-4.5 bg-card/95 hover:bg-accent border-y border-l border-border shadow-xs hover:shadow-md items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer group select-none"
                 title="Expand Formulas & Controls"
                 aria-label="Expand Formulas & Controls"
               >
-                <PanelRightOpen className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">Formulas & Controls</span>
+                <div className="w-full h-16 rounded-full flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                  <ChevronLeft className="h-5 w-5 stroke-[2.5] text-foreground group-hover:text-primary group-hover:-translate-x-0.5 transition-all" />
+                </div>
               </button>
             )}
 
-            {/* Concept Header Banner */}
-            <div className="bg-card border border-border rounded-xl px-3.5 py-2.5 shadow-xs flex items-center justify-between shrink-0">
-              <div className={`${!sidebarOpen ? "pl-28 sm:pl-32" : ""}`}>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary">
+            {/* Interactive Canvas Container with Full Height */}
+            <div className="flex-1 min-h-0 w-full h-full relative">
+              {/* Floating Concept Header Card in Top-Left of Canvas */}
+              <div
+                id="canvas-floating-concept-header"
+                className={`absolute top-2.5 sm:top-3 z-30 flex flex-col gap-1 bg-card/90 backdrop-blur-md border border-border/80 shadow-md rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 select-none pointer-events-auto transition-all max-w-[calc(100%-150px)] sm:max-w-xs md:max-w-sm lg:max-w-md ${
+                  !sidebarOpen ? "left-6 sm:left-7" : "left-2.5 sm:left-3"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider bg-primary/10 text-primary shrink-0">
                     {currentConcept.category}
                   </span>
-                  <h2 className="text-sm sm:text-base font-bold text-foreground">
+                  <h2 className="text-xs sm:text-sm md:text-base font-bold text-foreground truncate">
                     {currentConcept.title}
                   </h2>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+                <p className="text-[10px] sm:text-[11px] md:text-xs text-muted-foreground line-clamp-2 sm:line-clamp-none">
                   {currentConcept.summary}
                 </p>
+
+                {/* Presentation Controls when in Fullscreen */}
+                {isPresentationMode && (
+                  <div className="flex items-center gap-1 sm:gap-1.5 mt-1 pt-1 border-t border-border/60">
+                    <button
+                      onClick={() => setIsPlaying((p) => !p)}
+                      className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md ${
+                        isPlaying ? "bg-amber-600 text-white" : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      <span>{isPlaying ? "Pause" : "Play"}</span>
+                    </button>
+
+                    <button
+                      onClick={handleResetScene}
+                      className="p-1 rounded-md border border-input bg-background hover:bg-accent text-foreground"
+                      title="Reset Scene (R)"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      onClick={togglePresentationMode}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md border border-input bg-background hover:bg-accent text-foreground"
+                      title="Exit Presentation Mode (Esc)"
+                    >
+                      <Minimize2 className="h-3 w-3" />
+                      <span>Exit</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Presentation Controls when in Fullscreen */}
-              {isPresentationMode && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsPlaying((p) => !p)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg ${
-                      isPlaying ? "bg-amber-600 text-white" : "bg-primary text-primary-foreground"
-                    }`}
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-3.5 w-3.5" />
-                    ) : (
-                      <Play className="h-3.5 w-3.5" />
-                    )}
-                    <span>{isPlaying ? "Pause" : "Play"}</span>
-                  </button>
-
-                  <button
-                    onClick={handleResetScene}
-                    className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-foreground"
-                    title="Reset Scene (R)"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    onClick={togglePresentationMode}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-input bg-background hover:bg-accent text-foreground"
-                    title="Exit Presentation Mode (Esc)"
-                  >
-                    <Minimize2 className="h-3.5 w-3.5" />
-                    <span>Exit</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Interactive Canvas - Flex 1 fills all remaining vertical space */}
-            <div className="flex-1 min-h-0 w-full relative">
               <VisualizerCanvas
                 scene={scene}
                 defaultViewport={currentConcept.createScene().viewport}
@@ -572,35 +655,114 @@ function Index() {
                 resetKey={resetCount}
               />
             </div>
-
-            {/* Live Readouts Strip */}
-            {readouts && readouts.length > 0 && (
-              <div className="shrink-0 max-h-28 overflow-y-auto">
-                <ReadoutsPanel readouts={readouts} />
-              </div>
-            )}
           </div>
 
-          {/* Controls Column (Sliders, Toggles, Equation Editor) */}
-          {!isPresentationMode && rightPanelOpen ? (
-            <div className="w-full lg:w-72 xl:w-80 shrink-0 h-full flex flex-col gap-3 overflow-y-auto pr-1">
-              <div className="flex items-center justify-between px-1 pb-1 border-b border-border/70 shrink-0">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {/* Desktop Right Column Controls (Visible >= lg) */}
+          {!isPresentationMode && rightPanelOpen && (
+            <div className="hidden lg:block relative w-72 xl:w-80 shrink-0 h-full">
+              {/* Full Height Vertical Collapse Tab Handle for Formulas & Controls */}
+              <button
+                id="toggle-formulas-panel-btn"
+                onClick={() => setRightPanelOpen(false)}
+                className="absolute -left-3.5 top-0 bottom-0 z-30 w-4.5 bg-card/95 hover:bg-accent border-y border-l border-border shadow-xs hover:shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer group select-none"
+                title="Collapse Formulas & Controls"
+                aria-label="Collapse Formulas & Controls"
+              >
+                <div className="w-full h-16 rounded-full flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                  <ChevronRight className="h-5 w-5 stroke-[2.5] text-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </button>
+
+              <div className="w-full h-full flex flex-col gap-3 overflow-y-auto pr-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider px-1 pb-1 border-b border-border/70 shrink-0">
                   <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
                   <span>Formulas & Controls</span>
                 </div>
-                <button
-                  onClick={() => setRightPanelOpen(false)}
-                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer"
-                  title="Collapse formulas & controls panel"
-                  aria-label="Collapse formulas & controls panel"
-                >
-                  <PanelRightClose className="h-4 w-4" />
-                </button>
-              </div>
 
-              {primaryFnObj && (
+                {primaryFnObj && (
+                  <div className="shrink-0">
+                    <EquationEditor
+                      expression={primaryFnObj.expr}
+                      onUpdateExpression={handleUpdateExpression}
+                    />
+                  </div>
+                )}
+
                 <div className="shrink-0">
+                  <ParameterPanel
+                    parameters={scene.parameters}
+                    onUpdateParameter={handleUpdateParameter}
+                    animation={scene.animation}
+                    onUpdateAnimation={handleUpdateAnimation}
+                    onReset={handleResetScene}
+                  />
+                </div>
+
+                <div className="shrink-0">
+                  <FlagsPanel
+                    toggles={currentConcept.toggles}
+                    flags={scene.flags}
+                    onToggleFlag={handleToggleFlag}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Floating minimal slider bar when in Presentation Mode */}
+          {isPresentationMode && scene.parameters.length > 0 && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card/95 backdrop-blur-md border border-border rounded-xl p-2.5 sm:p-3 shadow-2xl flex flex-wrap items-center gap-3 sm:gap-4 max-w-[95vw]">
+              {scene.parameters.map((p) => (
+                <div key={p.name} className="flex items-center gap-2 text-xs font-semibold">
+                  <span className="text-muted-foreground">{p.label || p.name}:</span>
+                  <input
+                    type="range"
+                    min={p.min}
+                    max={p.max}
+                    step={p.step}
+                    value={p.value}
+                    onChange={(e) => handleUpdateParameter(p.name, parseFloat(e.target.value))}
+                    className="w-20 sm:w-32 accent-primary cursor-pointer"
+                  />
+                  <span className="font-mono w-8 sm:w-10 text-right">{p.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Slide-Up Controls Drawer Sheet (< lg) */}
+      {!isPresentationMode && mobileDrawer === "controls" && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setMobileDrawer("none")}
+          />
+          {/* Sheet Body */}
+          <div className="relative w-full max-h-[82dvh] bg-card border-t border-border rounded-t-2xl shadow-2xl z-10 flex flex-col animate-in slide-in-from-bottom duration-200 overflow-hidden">
+            {/* Sheet Header */}
+            <div className="p-3 border-b border-border bg-muted/20 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-primary/10 text-primary">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-sm text-foreground">Formulas & Controls</h3>
+              </div>
+              <button
+                onClick={() => setMobileDrawer("none")}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent text-xs font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <span>Done</span>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Scrollable controls */}
+            <div className="p-3 overflow-y-auto space-y-3 overscroll-contain">
+              {primaryFnObj && (
+                <div>
                   <EquationEditor
                     expression={primaryFnObj.expr}
                     onUpdateExpression={handleUpdateExpression}
@@ -608,7 +770,7 @@ function Index() {
                 </div>
               )}
 
-              <div className="shrink-0">
+              <div>
                 <ParameterPanel
                   parameters={scene.parameters}
                   onUpdateParameter={handleUpdateParameter}
@@ -618,7 +780,7 @@ function Index() {
                 />
               </div>
 
-              <div className="shrink-0">
+              <div>
                 <FlagsPanel
                   toggles={currentConcept.toggles}
                   flags={scene.flags}
@@ -626,30 +788,56 @@ function Index() {
                 />
               </div>
             </div>
-          ) : !isPresentationMode ? null : (
-            /* Floating minimal slider bar when presenting */
-            scene.parameters.length > 0 && (
-              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card/95 backdrop-blur-md border border-border rounded-xl p-3 shadow-2xl flex flex-wrap items-center gap-4 max-w-[90vw]">
-                {scene.parameters.map((p) => (
-                  <div key={p.name} className="flex items-center gap-2 text-xs font-semibold">
-                    <span className="text-muted-foreground">{p.label || p.name}:</span>
-                    <input
-                      type="range"
-                      min={p.min}
-                      max={p.max}
-                      step={p.step}
-                      value={p.value}
-                      onChange={(e) => handleUpdateParameter(p.name, parseFloat(e.target.value))}
-                      className="w-24 sm:w-32 accent-primary cursor-pointer"
-                    />
-                    <span className="font-mono w-10 text-right">{p.value}</span>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Mobile Bottom Navigation Bar (< lg) */}
+      {!isPresentationMode && (
+        <nav
+          id="mobile-bottom-navigation-bar"
+          className="lg:hidden h-14 border-t border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-around shrink-0 z-30 shadow-lg"
+        >
+          {/* Canvas Tab */}
+          <button
+            onClick={() => setMobileDrawer("none")}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-colors cursor-pointer touch-manipulation ${
+              mobileDrawer === "none"
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LineChart className="h-4 w-4" />
+            <span className="text-[10px] tracking-tight">Canvas</span>
+          </button>
+
+          {/* Sub-topics Tab */}
+          <button
+            onClick={() => setMobileDrawer((d) => (d === "subtopics" ? "none" : "subtopics"))}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-colors cursor-pointer touch-manipulation relative ${
+              mobileDrawer === "subtopics"
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            <span className="text-[10px] tracking-tight">Sub-topics</span>
+          </button>
+
+          {/* Controls Tab */}
+          <button
+            onClick={() => setMobileDrawer((d) => (d === "controls" ? "none" : "controls"))}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-lg transition-colors cursor-pointer touch-manipulation relative ${
+              mobileDrawer === "controls"
+                ? "text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="text-[10px] tracking-tight">Controls</span>
+          </button>
+        </nav>
+      )}
 
       {/* Save / Load Storage Modal */}
       <SceneStorageModal
