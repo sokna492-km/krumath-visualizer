@@ -22,18 +22,13 @@ import { VisualizerCanvas } from "@/features/visualizer/components/VisualizerCan
 import { ParameterPanel } from "@/features/visualizer/components/ParameterPanel";
 import { FlagsPanel } from "@/features/visualizer/components/FlagsPanel";
 import { EquationEditor } from "@/features/visualizer/components/EquationEditor";
-import { SceneStorageModal } from "@/features/visualizer/components/SceneStorageModal";
 import {
-  Compass,
   RotateCcw,
-  Maximize2,
   Minimize2,
-  FolderOpen,
   Moon,
   Sun,
   Play,
   Pause,
-  Download,
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
@@ -58,37 +53,8 @@ function Index() {
   const [scene, setScene] = useState<MathScene>(() => defaultConcept.createScene());
   const [isDark, setIsDark] = useState(false);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
-  const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [resetCount, setResetCount] = useState(0);
-  const [isNavHovered, setIsNavHovered] = useState(false);
-  const navHoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleNavMouseEnter = useCallback(() => {
-    if (navHoverTimeoutRef.current) {
-      clearTimeout(navHoverTimeoutRef.current);
-      navHoverTimeoutRef.current = null;
-    }
-    setIsNavHovered(true);
-  }, []);
-
-  const handleNavMouseLeave = useCallback(() => {
-    if (navHoverTimeoutRef.current) {
-      clearTimeout(navHoverTimeoutRef.current);
-    }
-    navHoverTimeoutRef.current = setTimeout(() => {
-      setIsNavHovered(false);
-    }, 350);
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (navHoverTimeoutRef.current) {
-        clearTimeout(navHoverTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
@@ -257,41 +223,6 @@ function Index() {
     }));
   };
 
-  // Load Saved Scene
-  const handleLoadScene = (loadedScene: MathScene) => {
-    setScene(loadedScene);
-    const matchedConcept = getConcept(loadedScene.conceptId) || concepts[0]!;
-    setCurrentConcept(matchedConcept);
-  };
-
-  // Export SVG / PNG image
-  const handleExportImage = () => {
-    const svgEl = document.querySelector("svg");
-    if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(svgBlob);
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = svgEl.clientWidth * 2;
-      canvas.height = svgEl.clientHeight * 2;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = isDark ? "#09090b" : "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const pngUrl = canvas.toDataURL("image/png");
-        const a = document.createElement("a");
-        a.href = pngUrl;
-        a.download = `${scene.title.toLowerCase().replace(/\s+/g, "_")}.png`;
-        a.click();
-      }
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  };
-
   // Toggle Presentation Mode & Fullscreen
   const togglePresentationMode = useCallback(() => {
     setIsPresentationMode((prev) => {
@@ -361,43 +292,13 @@ function Index() {
               className="h-7 w-7 shrink-0 rounded-lg"
             />
             <div className="min-w-0">
-              <h1 className="font-bold text-sm leading-none tracking-tight text-foreground flex items-center gap-1">
-                <span>KRUMATH</span>
+              <h1 className="font-bold text-sm leading-none tracking-tight text-foreground">
+                KruMath Visualizer
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Save / Lessons */}
-            <button
-              onClick={() => setStorageModalOpen(true)}
-              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-foreground transition-colors cursor-pointer"
-              title="Saved Lessons"
-              aria-label="Saved Lessons"
-            >
-              <FolderOpen className="h-4 w-4 text-primary" />
-            </button>
-
-            {/* Export PNG */}
-            <button
-              onClick={handleExportImage}
-              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              title="Export Snapshot PNG"
-              aria-label="Export Snapshot PNG"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-
-            {/* Fullscreen Presentation Mode */}
-            <button
-              onClick={togglePresentationMode}
-              className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
-              title="Present Fullscreen"
-              aria-label="Present Fullscreen"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
@@ -411,88 +312,32 @@ function Index() {
         </header>
       )}
 
-      {/* Desktop Auto-Hiding Navigation Bar Header */}
+      {/* Desktop Navigation Header */}
       {!isPresentationMode && (
-        <div
-          onMouseEnter={handleNavMouseEnter}
-          onMouseLeave={handleNavMouseLeave}
-          className="hidden md:block relative shrink-0 z-30 transition-all duration-300 ease-in-out"
-        >
-          {/* Top Edge Hover Trigger Strip */}
-          <div
-            onMouseEnter={handleNavMouseEnter}
-            className={`transition-all duration-300 ${
-              isNavHovered ? "h-0 overflow-hidden opacity-0" : "h-3 w-full cursor-default"
-            }`}
-          />
-
-          {/* Sliding Navigation Header */}
-          <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              isNavHovered
-                ? "max-h-16 opacity-100 shadow-sm"
-                : "max-h-0 opacity-0 pointer-events-none"
-            }`}
-          >
-            <header className="h-14 px-4 border-b border-border bg-card flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-primary text-primary-foreground shadow-xs">
-                  <Compass className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="font-bold text-base leading-tight tracking-tight text-foreground flex items-center gap-1.5">
-                    <span>KRUMATH</span>
-                    <span className="font-medium text-xs text-muted-foreground">
-                      Math Visualizer
-                    </span>
-                  </h1>
-                  <p className="text-[11px] text-muted-foreground hidden lg:block">
-                    Teacher Interactive Presentation & Demonstration Workbench
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Save & Load Modal */}
-                <button
-                  onClick={() => setStorageModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-input bg-background hover:bg-accent transition-colors shadow-2xs cursor-pointer"
-                >
-                  <FolderOpen className="h-3.5 w-3.5 text-primary" />
-                  <span>Lessons</span>
-                </button>
-
-                {/* Export PNG */}
-                <button
-                  onClick={handleExportImage}
-                  className="p-2 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Export Snapshot PNG"
-                >
-                  <Download className="h-4 w-4" />
-                </button>
-
-                {/* Fullscreen Presentation Mode */}
-                <button
-                  onClick={togglePresentationMode}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
-                  title="Enter Presentation Mode (Key: F)"
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  <span>Present</span>
-                </button>
-
-                {/* Theme Toggle */}
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Toggle Theme"
-                >
-                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                </button>
-              </div>
-            </header>
+        <header className="hidden md:flex h-14 px-4 border-b border-border bg-card items-center justify-between shrink-0 z-30">
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/favicon.svg"
+              alt="Krumath"
+              className="h-8 w-8 shrink-0 rounded-lg"
+            />
+            <div>
+              <h1 className="font-bold text-base leading-tight tracking-tight text-foreground">
+                KruMath Visualizer
+              </h1>
+            </div>
           </div>
-        </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title="Toggle Theme"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
+        </header>
       )}
 
       {/* Top Main Topics Navigation Bar (Always visible) */}
@@ -841,13 +686,6 @@ function Index() {
         </nav>
       )}
 
-      {/* Save / Load Storage Modal */}
-      <SceneStorageModal
-        isOpen={storageModalOpen}
-        onClose={() => setStorageModalOpen(false)}
-        currentScene={scene}
-        onLoadScene={handleLoadScene}
-      />
     </div>
   );
 }

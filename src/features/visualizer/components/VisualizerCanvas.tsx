@@ -383,47 +383,54 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     const mathX = Number(toMathX(sx).toFixed(2));
     const mathY = Number(toMathY(sy).toFixed(2));
 
-    // Handle special intercept dragging
-    if (draggedObjectId.startsWith("__intercept_y_")) {
+    const applyYInterceptDrag = (nextY: number) => {
       const yParam = findParamForY();
       if (yParam && onUpdateParameter) {
-        const clampedY = Math.max(yParam.min, Math.min(yParam.max, mathY));
+        const clampedY = Math.max(yParam.min, Math.min(yParam.max, nextY));
         onUpdateParameter(yParam.name, Number(clampedY.toFixed(2)));
       }
       if (onUpdatePoint) {
         const yintPoint = scene.objects.find((o) => o.id === "yint");
-        if (yintPoint) onUpdatePoint("yint", 0, mathY);
+        if (yintPoint) onUpdatePoint("yint", 0, nextY);
       }
-      return;
-    }
+    };
 
-    if (draggedObjectId.startsWith("__intercept_x_")) {
+    const applyXInterceptDrag = (nextX: number) => {
       const yParam = findParamForY();
       const xParam = findParamForX();
 
-      // If linear function m*x + c:
       if (
         xParam &&
         (xParam.name === "m" || xParam.name === "a") &&
-        mathX !== 0 &&
+        nextX !== 0 &&
         onUpdateParameter
       ) {
         const cVal = yParam ? yParam.value : (scope["c"] ?? scope["b"] ?? 0);
-        const newM = -cVal / mathX;
+        const newM = -cVal / nextX;
         const clampedM = Math.max(xParam.min, Math.min(xParam.max, newM));
         onUpdateParameter(xParam.name, Number(clampedM.toFixed(2)));
       } else if (xParam && (xParam.name === "h" || xParam.name === "x0") && onUpdateParameter) {
-        const clampedH = Math.max(xParam.min, Math.min(xParam.max, mathX));
+        const clampedH = Math.max(xParam.min, Math.min(xParam.max, nextX));
         onUpdateParameter(xParam.name, Number(clampedH.toFixed(2)));
       } else if (xParam && onUpdateParameter) {
-        const clamped = Math.max(xParam.min, Math.min(xParam.max, mathX));
+        const clamped = Math.max(xParam.min, Math.min(xParam.max, nextX));
         onUpdateParameter(xParam.name, Number(clamped.toFixed(2)));
       }
 
       if (onUpdatePoint) {
         const xintPoint = scene.objects.find((o) => o.id === "xint");
-        if (xintPoint) onUpdatePoint("xint", mathX, 0);
+        if (xintPoint) onUpdatePoint("xint", nextX, 0);
       }
+    };
+
+    // Named intercept points and auto intercept markers share the same drag behaviour
+    if (draggedObjectId.startsWith("__intercept_y_") || draggedObjectId === "yint") {
+      applyYInterceptDrag(mathY);
+      return;
+    }
+
+    if (draggedObjectId.startsWith("__intercept_x_") || draggedObjectId === "xint") {
+      applyXInterceptDrag(mathX);
       return;
     }
 
@@ -654,7 +661,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     const {
       color = "var(--color-foreground)",
       direction = "top-right",
-      fontSize = Math.max(10, Math.round(11 * Math.sqrt(effectiveScale))),
+      fontSize = Math.max(12, Math.round(13 * Math.sqrt(effectiveScale))),
       fontWeight = "600",
       offset = 8,
       badgeStyle = "solid",
@@ -741,6 +748,146 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     );
   };
 
+  const INTERCEPT_COVER_PX = 18;
+  const TICK_SKIP_PX = 36;
+
+  type InterceptCandidate = {
+    kind: "y" | "x";
+    sx: number;
+    sy: number;
+    mathX: number;
+    mathY: number;
+    fnObj: FunctionObject;
+    fnIdx: number;
+    rIdx: number;
+    id: string;
+    show: boolean;
+  };
+
+  const getVisibleLabeledPoints = () => {
+    const pts: { sx: number; sy: number; x: number; y: number }[] = [];
+    for (const obj of scene.objects) {
+      if (obj.kind !== "point") continue;
+      if (!isObjectVisible(scene, obj.requires, obj.visible)) continue;
+      if (!obj.label && !obj.showCoords) continue;
+      const x = resolveValue(obj.x, scope);
+      const y = resolveValue(obj.y, scope);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      pts.push({ x, y, sx: toScreenX(x), sy: toScreenY(y) });
+    }
+    return pts;
+  };
+
+  const scenePointCoversScreen = (
+    sx: number,
+    sy: number,
+    labeled: { sx: number; sy: number }[],
+  ) => labeled.some((p) => Math.hypot(p.sx - sx, p.sy - sy) < INTERCEPT_COVER_PX);
+
+  const collectInterceptCandidates = (): InterceptCandidate[] => {
+    const labeled = getVisibleLabeledPoints();
+    const allowAutoY = scene.flags.intercepts !== false;
+    const allowAutoXGlobal = scene.flags.intercepts !== false && scene.flags.roots !== false;
+    const candidates: InterceptCandidate[] = [];
+
+    const visibleFunctions = scene.objects.filter(
+      (o) => o.kind === "function" && isObjectVisible(scene, o.requires, o.visible),
+    ) as FunctionObject[];
+
+    visibleFunctions.forEach((fnObj, fnIdx) => {
+      const f = makePlotFunction(fnObj.expr, () => scope);
+
+      if (allowAutoY && 0 >= xmin && 0 <= xmax) {
+        const y0 = f(0);
+        if (Number.isFinite(y0) && y0 >= ymin - 5 && y0 <= ymax + 5) {
+          const sx = toScreenX(0);
+          const sy = toScreenY(y0);
+          candidates.push({
+            kind: "y",
+            sx,
+            sy,
+            mathX: 0,
+            mathY: y0,
+            fnObj,
+            fnIdx,
+            rIdx: -1,
+            id: `__intercept_y_${fnObj.id}_${fnIdx}`,
+            show: !scenePointCoversScreen(sx, sy, labeled),
+          });
+        }
+      }
+
+      const allowAutoX = allowAutoXGlobal && fnObj.showRoots !== false;
+      if (allowAutoX) {
+        const rawRoots = findRoots(f, xmin, xmax, 400);
+        rawRoots.forEach((root, rIdx) => {
+          const sx = toScreenX(root);
+          const sy = toScreenY(0);
+          candidates.push({
+            kind: "x",
+            sx,
+            sy,
+            mathX: root,
+            mathY: 0,
+            fnObj,
+            fnIdx,
+            rIdx,
+            id: `__intercept_x_${fnObj.id}_${rIdx}`,
+            show: !scenePointCoversScreen(sx, sy, labeled),
+          });
+        });
+      }
+    });
+
+    return candidates;
+  };
+
+  const interceptCandidates = collectInterceptCandidates();
+
+  const collectTickSkipAnchors = () => {
+    const anchors: { sx: number; sy: number; axis: "x" | "y"; math: number }[] = [];
+    const originX = toScreenX(0);
+    const originY = toScreenY(0);
+
+    for (const p of getVisibleLabeledPoints()) {
+      if (Math.abs(p.x) < 1e-4 || Math.abs(p.sx - originX) < INTERCEPT_COVER_PX) {
+        anchors.push({ sx: p.sx, sy: p.sy, axis: "y", math: p.y });
+      }
+      if (Math.abs(p.y) < 1e-4 || Math.abs(p.sy - originY) < INTERCEPT_COVER_PX) {
+        anchors.push({ sx: p.sx, sy: p.sy, axis: "x", math: p.x });
+      }
+    }
+
+    for (const c of interceptCandidates) {
+      if (c.show) {
+        anchors.push({
+          sx: c.sx,
+          sy: c.sy,
+          axis: c.kind,
+          math: c.kind === "y" ? c.mathY : c.mathX,
+        });
+      }
+    }
+
+    return anchors;
+  };
+
+  const tickCollidesWithAnchor = (
+    tickMath: number,
+    sx: number,
+    sy: number,
+    axis: "x" | "y",
+    step: number,
+    anchors: { sx: number; sy: number; axis: "x" | "y"; math: number }[],
+  ) =>
+    anchors.some((a) => {
+      if (a.axis !== axis) return false;
+      if (Math.abs(a.math - tickMath) < step * 0.6) return true;
+      return axis === "x" ? Math.abs(a.sx - sx) < TICK_SKIP_PX : Math.abs(a.sy - sy) < TICK_SKIP_PX;
+    });
+
+  const tickSkipAnchors = collectTickSkipAnchors();
+
   // Helper function to resolve point coordinates
   const getPointCoords = useCallback(
     (id: string): [number, number] => {
@@ -786,8 +933,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     const minorGridOpacity = gridOpacity * 0.35;
 
     const tickFontSize = Math.max(
-      10,
-      Math.round((isPresentationMode ? 13 : 11) * Math.sqrt(effectiveScale)),
+      12,
+      Math.round((isPresentationMode ? 15 : 13) * Math.sqrt(effectiveScale)),
     );
     const tickFontWeight = effectiveScale >= 1.5 ? "bold" : "medium";
     const axisLineWidth = Math.max(
@@ -906,8 +1053,12 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         );
       }
 
-      // Label for X tick
-      if (!isAxis && scene.settings?.showAxisLabels !== false) {
+      // Label for X tick (skip when an intercept marker sits on this numeral)
+      if (
+        !isAxis &&
+        scene.settings?.showAxisLabels !== false &&
+        !tickCollidesWithAnchor(x, sx, xLabelY, "x", stepX, tickSkipAnchors)
+      ) {
         ticks.push(
           <text
             key={`tx-${i}`}
@@ -966,8 +1117,12 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         );
       }
 
-      // Label for Y tick
-      if (!isAxis && scene.settings?.showAxisLabels !== false) {
+      // Label for Y tick (skip when an intercept marker sits on this numeral)
+      if (
+        !isAxis &&
+        scene.settings?.showAxisLabels !== false &&
+        !tickCollidesWithAnchor(y, yLabelX, sy, "y", stepY, tickSkipAnchors)
+      ) {
         ticks.push(
           <text
             key={`ty-${j}`}
@@ -985,8 +1140,16 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
       }
     }
 
-    // Origin (0,0) Label
-    if (scene.settings?.showAxisLabels !== false && isXAxisOnScreen && isYAxisOnScreen) {
+    // Origin (0,0) Label — hide when an intercept marker is already at the origin
+    const originTickBlocked = tickSkipAnchors.some(
+      (a) => Math.hypot(a.sx - originX, a.sy - originY) < TICK_SKIP_PX,
+    );
+    if (
+      scene.settings?.showAxisLabels !== false &&
+      isXAxisOnScreen &&
+      isYAxisOnScreen &&
+      !originTickBlocked
+    ) {
       ticks.push(
         <text
           key="origin-0"
@@ -1032,7 +1195,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                 x={size.width - 12}
                 y={Math.max(16, Math.min(size.height - 8, originY - 8))}
                 fill="var(--color-foreground)"
-                fontSize={Math.max(11, Math.round(12 * Math.sqrt(effectiveScale)))}
+                fontSize={Math.max(13, Math.round(14 * Math.sqrt(effectiveScale)))}
                 fontWeight="bold"
                 textAnchor="end"
                 className="select-none pointer-events-none"
@@ -1045,7 +1208,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                 x={Math.max(16, Math.min(size.width - 12, originX + 12))}
                 y={18}
                 fill="var(--color-foreground)"
-                fontSize={Math.max(11, Math.round(12 * Math.sqrt(effectiveScale)))}
+                fontSize={Math.max(13, Math.round(14 * Math.sqrt(effectiveScale)))}
                 fontWeight="bold"
                 textAnchor="start"
                 className="select-none pointer-events-none"
@@ -1063,42 +1226,24 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
   // Render Interactive Function Intercepts (Y-Intercept & X-Intercepts) with dynamic collision resolution
   const renderFunctionIntercepts = () => {
     const interceptElements: React.ReactNode[] = [];
-    const visibleFunctions = scene.objects.filter(
-      (o) => o.kind === "function" && isObjectVisible(scene, o.requires, o.visible),
-    ) as FunctionObject[];
+    const visible = interceptCandidates.filter((c) => c.show);
 
     const markerRadius = Math.max(5, Math.round(6 * Math.sqrt(effectiveScale)));
     const markerStrokeWidth = Math.max(2, Math.round(2 * Math.sqrt(effectiveScale)));
     const haloRadius = Math.max(12, Math.round(14 * Math.sqrt(effectiveScale)));
-    const tagFontSize = Math.max(9, Math.round(10 * Math.min(1.5, Math.sqrt(effectiveScale))));
+    const tagFontSize = Math.max(11, Math.round(12 * Math.min(1.5, Math.sqrt(effectiveScale))));
 
-    visibleFunctions.forEach((fnObj, fnIdx) => {
-      const f = makePlotFunction(fnObj.expr, () => scope);
+    const byFn = new Map<number, InterceptCandidate[]>();
+    visible.forEach((c) => {
+      const list = byFn.get(c.fnIdx) ?? [];
+      list.push(c);
+      byFn.set(c.fnIdx, list);
+    });
 
-      // Collect potential intercepts for this function
-      let yInterceptData: { sx: number; sy: number; y0: number; id: string } | null = null;
-      if (0 >= xmin && 0 <= xmax) {
-        const y0 = f(0);
-        if (Number.isFinite(y0) && y0 >= ymin - 5 && y0 <= ymax + 5) {
-          yInterceptData = {
-            sx: toScreenX(0),
-            sy: toScreenY(y0),
-            y0,
-            id: `__intercept_y_${fnObj.id}_${fnIdx}`,
-          };
-        }
-      }
+    byFn.forEach((list) => {
+      const yInterceptData = list.find((c) => c.kind === "y") ?? null;
+      const rootList = list.filter((c) => c.kind === "x");
 
-      const rawRoots = findRoots(f, xmin, xmax, 400);
-      const rootList = rawRoots.map((root, rIdx) => ({
-        root,
-        sx: toScreenX(root),
-        sy: toScreenY(0),
-        id: `__intercept_x_${fnObj.id}_${rIdx}`,
-        rIdx,
-      }));
-
-      // Check for proximity between Y-intercept and any Root (especially near origin (0, 0))
       let yInterceptDir: "top-left" | "top-right" | "right" | "left" = "top-right";
       const rootDirections: Array<"bottom" | "top" | "bottom-right" | "bottom-left"> = [];
 
@@ -1109,8 +1254,6 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         if (yInterceptData) {
           const distToY = Math.hypot(r.sx - yInterceptData.sx, r.sy - yInterceptData.sy);
           if (distToY < 48) {
-            // Collision between Y-intercept and X-intercept near origin!
-            // Assign opposing non-overlapping quadrants
             yInterceptDir = "top-left";
             dir = "bottom-right";
           }
@@ -1118,13 +1261,12 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         rootDirections.push(dir);
       });
 
-      // 1. Render Y-Intercept
       if (yInterceptData) {
-        const { sx, sy, y0, id } = yInterceptData;
+        const { sx, sy, mathY: y0, id } = yInterceptData;
         interceptElements.push(
           <g
             key={id}
-            className="cursor-grab active:cursor-grabbing group select-none"
+            className="cursor-pointer group select-none"
             onPointerDown={(e) => handlePointerDown(id, e)}
             onClick={() => {
               if (!hasDraggedSignificantly) {
@@ -1150,7 +1292,6 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             }
             onPointerLeave={() => setHoverInfo(null)}
           >
-            {/* Outer Glow Halo on Hover */}
             <circle
               cx={sx}
               cy={sy}
@@ -1168,7 +1309,6 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               strokeWidth={markerStrokeWidth}
               className="shadow-sm"
             />
-            {/* Intercept Label Tag with Collision Avoidance */}
             {renderSmartPill(`(0, ${formatNumber(y0, 1)})`, sx, sy, {
               color: "#dc2626",
               direction: yInterceptDir,
@@ -1181,15 +1321,14 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         );
       }
 
-      // 2. Render X-Intercepts (Roots)
       rootList.forEach((r, idx) => {
-        const { sx, sy, root, id } = r;
+        const { sx, sy, mathX: root, id } = r;
         const dir = rootDirections[idx] || "bottom";
 
         interceptElements.push(
           <g
             key={id}
-            className="cursor-grab active:cursor-grabbing group select-none"
+            className="cursor-pointer group select-none"
             onPointerDown={(e) => handlePointerDown(id, e)}
             onClick={() => {
               if (!hasDraggedSignificantly) {
@@ -1215,7 +1354,6 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             }
             onPointerLeave={() => setHoverInfo(null)}
           >
-            {/* Outer Glow Halo on Hover */}
             <circle
               cx={sx}
               cy={sy}
@@ -1233,7 +1371,6 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               strokeWidth={markerStrokeWidth}
               className="shadow-sm"
             />
-            {/* Root Label Tag with Collision Avoidance */}
             {renderSmartPill(`(${formatNumber(root, 1)}, 0)`, sx, sy, {
               color: "#16a34a",
               direction: dir,
@@ -1301,8 +1438,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           Math.round((isPresentationMode ? 3.8 : 2.6) * effectiveScale),
         );
         const fnFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         return (
@@ -1323,7 +1460,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               fill="none"
               stroke="transparent"
               strokeWidth={Math.max(22, 18 + fnStrokeWidth * 2)}
-              className="cursor-grab"
+              className="cursor-pointer"
               onPointerMove={handleFunctionHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
@@ -1355,8 +1492,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
         );
         const ptStroke = Math.max(2, Math.round(2 * Math.sqrt(effectiveScale)));
         const ptFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         const handlePointHover = () => {
@@ -1372,9 +1509,16 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           });
         };
 
-        // Determine optimal direction for point label avoiding borders
-        let ptDir: "top-right" | "top-left" | "bottom-right" | "bottom-left" = "top-right";
-        if (sx > size.width - 90) {
+        // Place intercepts off the gradient triangle: y-axis → top-left, x-axis → below
+        let ptDir: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "right" | "left" | "bottom" =
+          "top-right";
+        const onYAxis = Math.abs(x) < 1e-4;
+        const onXAxis = Math.abs(y) < 1e-4;
+        if (onYAxis && !onXAxis) {
+          ptDir = sx < 110 ? "right" : "left";
+        } else if (onXAxis && !onYAxis) {
+          ptDir = sy < 50 ? "top-right" : "bottom";
+        } else if (sx > size.width - 90) {
           ptDir = sy < 60 ? "bottom-left" : "top-left";
         } else if (sy < 50) {
           ptDir = "bottom-right";
@@ -1386,23 +1530,44 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             ? `(${formatNumber(x, 1)}, ${formatNumber(y, 1)})`
             : "";
 
+        const openPointEditor = () => {
+          if (hasDraggedSignificantly) return;
+          if (obj.id === "yint") {
+            handleOpenExactEditor({
+              type: "y-intercept",
+              title: "Edit Y-Intercept",
+              currentY: y,
+              currentX: 0,
+              label: `y-intercept (0, ${formatNumber(y, 2)})`,
+            });
+            return;
+          }
+          if (obj.id === "xint") {
+            handleOpenExactEditor({
+              type: "x-intercept",
+              title: "Edit X-Intercept (Root)",
+              currentX: x,
+              currentY: 0,
+              label: `x-intercept (${formatNumber(x, 2)}, 0)`,
+            });
+            return;
+          }
+          handleOpenExactEditor({
+            type: "point",
+            id: obj.id,
+            title: `Edit Point ${ptObj.label || ""}`,
+            currentX: x,
+            currentY: y,
+            label: ptObj.label,
+          });
+        };
+
         return (
           <g
             key={obj.id}
-            className="cursor-grab active:cursor-grabbing group"
+            className="cursor-pointer group"
             onPointerDown={(e) => handlePointerDown(obj.id, e)}
-            onClick={() => {
-              if (!hasDraggedSignificantly) {
-                handleOpenExactEditor({
-                  type: "point",
-                  id: obj.id,
-                  title: `Edit Point ${ptObj.label || ""}`,
-                  currentX: x,
-                  currentY: y,
-                  label: ptObj.label,
-                });
-              }
-            }}
+            onClick={openPointEditor}
             onPointerEnter={handlePointHover}
             onPointerLeave={() => setHoverInfo(null)}
           >
@@ -1462,8 +1627,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           Math.round((isPresentationMode ? 2.5 : 2) * effectiveScale),
         );
         const gliderFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         const handleGliderHover = () => {
@@ -1515,7 +1680,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                   y2={toScreenY(y2)}
                   stroke="transparent"
                   strokeWidth={20}
-                  className="cursor-grab"
+                  className="cursor-pointer"
                   onPointerMove={handleTangentHover}
                   onPointerLeave={() => setHoverInfo(null)}
                 />
@@ -1528,7 +1693,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               fill="#dc2626"
               stroke="#ffffff"
               strokeWidth={Math.max(2, Math.round(2 * Math.sqrt(effectiveScale)))}
-              className="cursor-grab active:cursor-grabbing"
+              className="cursor-pointer"
               onPointerDown={(e) => handlePointerDown(obj.id, e)}
               onPointerEnter={handleGliderHover}
               onPointerLeave={() => setHoverInfo(null)}
@@ -1561,8 +1726,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
 
         const lineStroke = Math.max(2, Math.round((isPresentationMode ? 2.5 : 2) * effectiveScale));
         const lineFontSize = Math.max(
-          10,
-          Math.round((isPresentationMode ? 13 : 11) * Math.sqrt(effectiveScale)),
+          12,
+          Math.round((isPresentationMode ? 15 : 13) * Math.sqrt(effectiveScale)),
         );
 
         const handleLineHover = (e: React.PointerEvent) => {
@@ -1602,6 +1767,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
 
         if (isRun) {
           lineDir = "bottom";
+          // Bias toward the free end so the pill does not sit on the y-axis
+          midSx = sx1 + (sx2 - sx1) * 0.72;
         } else if (isRise) {
           const dy = Math.abs(sy2 - sy1);
           if (dy < 18) {
@@ -1643,7 +1810,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               y2={sy2}
               stroke="transparent"
               strokeWidth={20}
-              className="cursor-grab"
+              className="cursor-pointer"
               onPointerMove={handleLineHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
@@ -1671,8 +1838,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
 
         const circStroke = Math.max(2, Math.round((isPresentationMode ? 3 : 2) * effectiveScale));
         const circFontSize = Math.max(
-          10,
-          Math.round((isPresentationMode ? 13 : 11) * Math.sqrt(effectiveScale)),
+          12,
+          Math.round((isPresentationMode ? 15 : 13) * Math.sqrt(effectiveScale)),
         );
 
         const handleCircleHover = (e: React.PointerEvent) => {
@@ -1712,7 +1879,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               fill="none"
               stroke="transparent"
               strokeWidth={20}
-              className="cursor-grab"
+              className="cursor-pointer"
               onPointerMove={handleCircleHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
@@ -1760,8 +1927,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           Math.round((isPresentationMode ? 8 : 6) * Math.sqrt(effectiveScale)),
         );
         const polyFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         const handlePolygonEdgeHover = (e: React.PointerEvent, idx1: number, idx2: number) => {
@@ -1811,7 +1978,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
                   y2={toScreenY(vy2)}
                   stroke="transparent"
                   strokeWidth={18}
-                  className="cursor-grab"
+                  className="cursor-pointer"
                   onPointerMove={(e) => handlePolygonEdgeHover(e, idx, (idx + 1) % pts.length)}
                   onPointerLeave={() => setHoverInfo(null)}
                 />
@@ -1837,7 +2004,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               return (
                 <g
                   key={`v-${idx}`}
-                  className="cursor-grab active:cursor-grabbing"
+                  className="cursor-pointer"
                   onPointerDown={(e) => handlePointerDown(obj.id, e, idx)}
                   onPointerEnter={() =>
                     setHoverInfo({
@@ -1924,8 +2091,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           Math.round((isPresentationMode ? 7 : 5) * Math.sqrt(effectiveScale)),
         );
         const trFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         return (
@@ -1984,8 +2151,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
           Math.round((isPresentationMode ? 3.5 : 2.5) * effectiveScale),
         );
         const vecFontSize = Math.max(
-          11,
-          Math.round((isPresentationMode ? 14 : 12) * Math.sqrt(effectiveScale)),
+          13,
+          Math.round((isPresentationMode ? 16 : 14) * Math.sqrt(effectiveScale)),
         );
 
         const handleVectorHover = (e: React.PointerEvent) => {
@@ -2032,7 +2199,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
               y2={sy2}
               stroke="transparent"
               strokeWidth={20}
-              className="cursor-grab"
+              className="cursor-pointer"
               onPointerMove={handleVectorHover}
               onPointerLeave={() => setHoverInfo(null)}
             />
@@ -2158,8 +2325,8 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             y={toScreenY(ty)}
             fill={color}
             fontSize={Math.max(
-              11,
-              Math.round((isPresentationMode ? 15 : 13) * Math.sqrt(effectiveScale)),
+              13,
+              Math.round((isPresentationMode ? 17 : 15) * Math.sqrt(effectiveScale)),
             )}
             fontWeight="semibold"
           >
@@ -2173,17 +2340,15 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
     }
   };
 
-  const tooltipLeft = hoverInfo ? Math.min(Math.max(80, hoverInfo.screenX), size.width - 80) : 0;
-  const isNearTop = hoverInfo ? hoverInfo.screenY < 80 : false;
-  const tooltipTop = hoverInfo ? (isNearTop ? hoverInfo.screenY + 16 : hoverInfo.screenY - 14) : 0;
+  const tooltipLeft = hoverInfo ? Math.min(Math.max(160, hoverInfo.screenX), size.width - 160) : 0;
+  const isNearTop = hoverInfo ? hoverInfo.screenY < 140 : false;
+  const tooltipTop = hoverInfo ? (isNearTop ? hoverInfo.screenY + 28 : hoverInfo.screenY - 22) : 0;
 
   return (
     <div
       ref={containerRef}
       id="math-graph-visualization-area"
-      className={`relative w-full h-full min-h-[280px] sm:min-h-[380px] bg-background border rounded-xl shadow-xs overflow-hidden select-none touch-none ${
-        isPanning ? "cursor-grabbing" : "cursor-grab"
-      }`}
+      className="relative w-full h-full min-h-[280px] sm:min-h-[380px] bg-background border rounded-xl shadow-xs overflow-hidden select-none touch-none cursor-pointer"
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -2350,7 +2515,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
       <svg
         width={size.width}
         height={size.height}
-        className="block w-full h-full cursor-grab active:cursor-grabbing"
+        className="block w-full h-full cursor-pointer"
       >
         <defs>
           <clipPath id={clipId}>
@@ -2427,24 +2592,24 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             transform: `translate(-50%, ${isNearTop ? "0%" : "-100%"})`,
           }}
         >
-          <div className="bg-popover/95 text-popover-foreground shadow-lg border border-border/80 backdrop-blur-md rounded-lg px-2.5 py-1.5 flex flex-col gap-1 text-xs select-none min-w-[130px]">
+          <div className="bg-popover/95 text-popover-foreground shadow-xl border border-border/80 backdrop-blur-md rounded-xl px-5 py-3.5 flex flex-col gap-2 select-none min-w-[260px]">
             {hoverInfo.label && (
-              <div className="flex items-center gap-1.5 font-medium text-[11px] text-muted-foreground border-b border-border/50 pb-0.5">
+              <div className="flex items-center gap-2.5 font-medium text-lg text-muted-foreground border-b border-border/50 pb-1.5">
                 <span
-                  className="w-2 h-2 rounded-full inline-block shrink-0"
+                  className="w-3.5 h-3.5 rounded-full inline-block shrink-0"
                   style={{ backgroundColor: hoverInfo.color || "#2563eb" }}
                 />
-                <span className="truncate max-w-[200px] font-sans font-semibold text-foreground/90">
+                <span className="max-w-[420px] font-sans font-semibold text-foreground leading-snug">
                   {hoverInfo.label}
                 </span>
               </div>
             )}
-            <div className="font-mono font-bold text-foreground text-sm tracking-tight flex items-center justify-center gap-1 py-0.5">
+            <div className="font-mono font-bold text-foreground text-3xl tracking-tight flex items-center justify-center gap-1 py-1">
               <span>
                 ({formatNumber(hoverInfo.x, 2)}, {formatNumber(hoverInfo.y, 2)})
               </span>
             </div>
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground/90 font-mono px-0.5 border-t border-border/30 pt-0.5">
+            <div className="flex items-center justify-between text-lg text-muted-foreground font-mono px-0.5 border-t border-border/30 pt-1.5">
               <span>x = {formatNumber(hoverInfo.x, 3)}</span>
               <span>y = {formatNumber(hoverInfo.y, 3)}</span>
             </div>

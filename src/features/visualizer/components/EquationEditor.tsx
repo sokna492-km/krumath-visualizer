@@ -1,11 +1,65 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { tryCompile } from "@/math/parser/expression";
-import { Code, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
+import { Code, CheckCircle2, AlertCircle, Sparkles, Maximize2 } from "lucide-react";
 import { MathView } from "./MathView";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface EquationEditorProps {
   expression: string;
   onUpdateExpression: (newExpr: string) => void;
+}
+
+/** Scales KaTeX to fill the board so it stays readable from the back of a classroom. */
+function FormulaBoard({ math }: { math: string }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const inner = innerRef.current;
+    if (!box || !inner) return;
+
+    const fit = () => {
+      const mathEl = inner.querySelector(".katex") as HTMLElement | null;
+      if (!mathEl || mathEl.offsetWidth < 4 || mathEl.offsetHeight < 4) return;
+      if (box.clientWidth < 8 || box.clientHeight < 8) return;
+
+      const pad = 112;
+      const next = Math.min(
+        (box.clientWidth - pad) / mathEl.offsetWidth,
+        (box.clientHeight - pad) / mathEl.offsetHeight,
+      );
+      if (!Number.isFinite(next) || next <= 0) return;
+      setScale(Math.max(0.2, next));
+    };
+
+    fit();
+    const frame = requestAnimationFrame(fit);
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+  }, [math]);
+
+  return (
+    <div ref={boxRef} className="absolute inset-0 flex items-center justify-center overflow-hidden">
+      <div
+        ref={innerRef}
+        className="formula-board-math w-fit [&_.katex-display]:m-0 [&_.katex-display]:inline-block"
+        style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}
+      >
+        <MathView math={math} displayMode={true} />
+      </div>
+    </div>
+  );
 }
 
 const COMMON_PRESETS = [
@@ -24,6 +78,7 @@ export const EquationEditor: React.FC<EquationEditorProps> = ({
   onUpdateExpression,
 }) => {
   const [inputVal, setInputVal] = useState(expression);
+  const [formulaOpen, setFormulaOpen] = useState(false);
   const result = tryCompile(inputVal);
 
   useEffect(() => {
@@ -72,10 +127,29 @@ export const EquationEditor: React.FC<EquationEditorProps> = ({
         )}
       </div>
 
-      {/* KaTeX Live Mathematical Preview */}
-      <div className="p-2.5 rounded-lg bg-accent/30 border border-border flex items-center justify-center min-h-[44px]">
+      {/* KaTeX Live Mathematical Preview — click to enlarge for the class */}
+      <button
+        type="button"
+        onClick={() => setFormulaOpen(true)}
+        className="relative w-full p-2.5 rounded-lg bg-accent/30 border border-border flex items-center justify-center min-h-[44px] cursor-pointer hover:bg-accent/50 hover:border-primary/40 transition-colors"
+        title="Enlarge formula for the class"
+        aria-label="Enlarge formula"
+      >
         <MathView math={`y = ${formatKaTeX(inputVal)}`} displayMode={true} />
-      </div>
+        <Maximize2 className="absolute right-2 top-2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </button>
+
+      <Dialog open={formulaOpen} onOpenChange={setFormulaOpen}>
+        <DialogContent
+          className="left-0 top-0 flex h-[100dvh] w-screen max-h-none max-w-none translate-x-0 translate-y-0 flex-col rounded-none border-0 bg-background p-8 sm:p-12 shadow-none sm:rounded-none [&>button]:right-5 [&>button]:top-5 [&>button]:p-3 [&>button>svg]:h-8 [&>button>svg]:w-8"
+        >
+          <DialogTitle className="sr-only">Formula</DialogTitle>
+          <DialogDescription className="sr-only">
+            Full-screen equation for classroom display. Press Escape or click the close button to exit.
+          </DialogDescription>
+          <FormulaBoard math={`y = ${formatKaTeX(inputVal)}`} />
+        </DialogContent>
+      </Dialog>
 
       {/* Input Field */}
       <div className="relative">
