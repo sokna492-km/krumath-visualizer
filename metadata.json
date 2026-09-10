@@ -1,6 +1,0 @@
-{
-  "name": "Krumath Visualizer",
-  "description": "Interactive visualizer for secondary school mathematics concepts including functions, coordinate geometry, calculus, and trigonometry.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

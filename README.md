@@ -1,43 +1,71 @@
-# Krumath Visualizer
+# KruMath Visualizer
 
-An interactive mathematics demonstration tool for the classroom — part of [Krumath](https://krumath.com).
+Interactive mathematics demonstration tool for the classroom — part of [KruMath](https://krumath.com).
+
+**Production URL:** `https://krumath.com/math-visualizer`  
+**Auth:** soft gate — anyone can use the app; **Export PNG** requires a signed-in (non-anonymous) KruMath account.
 
 ## What it is
 
-Krumath Visualizer helps teachers explain secondary-school mathematics on a large screen. Open one page, pick a concept, and walk students through it live: adjust equations, move points, change parameters, show or hide elements, and reset when you need a fresh start.
+KruMath Visualizer helps teachers explain secondary-school mathematics on a large screen. Open one page, pick a concept, and walk students through it live: adjust equations, move points, change parameters, show or hide elements, and reset when you need a fresh start.
 
-It is built for teaching, not for feeling like a graphing calculator. The goal is a clear, full-screen presentation that supports explanation in front of a class.
+## Local development
 
-## Who it is for
+```bash
+npm install
+cp .env.example .env   # optional for local DEV; soft gate is skipped in DEV
+npm run dev
+```
 
-- **Teachers** leading lessons and demonstrations
-- **Students** following along or exploring ideas after class
-- **Anyone** who wants to see school maths ideas in motion
+Dev server: `http://localhost:8080/math-visualizer/` (Vite `base` is `/math-visualizer/`).
+
+### Environment
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | Production | Same Supabase project as KruMath (`NEXT_PUBLIC_SUPABASE_URL`) |
+| `VITE_SUPABASE_ANON_KEY` | Production | Same as KruMath anon key |
+| `VITE_KRUMATH_ORIGIN` | Optional | e.g. `http://localhost:3000` so sign-in / home hit local KruMath |
+
+Vite embeds `VITE_*` at **build time**. Changing keys requires rebuild + redeploy. Never commit `.env`.
+
+## Soft gate
+
+- Browse concepts, edit, animate, and use presentation mode without signing in.
+- **Export PNG** (graph toolbar) calls `requireSignedInForAction`:
+  - **DEV:** always allowed
+  - **Production:** unsigned / anonymous → `/sign-in?returnUrl=/math-visualizer`
+- Home links point at `https://krumath.com/home` (or `VITE_KRUMATH_ORIGIN/home`).
+
+See [KRUMATH_GAME_INTEGRATION.md](./KRUMATH_GAME_INTEGRATION.md) for the full host integration playbook.
+
+## Deploy (Cloudflare Worker)
+
+```bash
+# Set VITE_SUPABASE_* in the environment for the build
+npm run deploy
+```
+
+Worker name: `math-visualizer` ([wrangler.toml](./wrangler.toml)).
+
+### Operator checklist
+
+1. Build/deploy with Supabase env present.
+2. Cloudflare route (more specific than main `krumath` Worker):
+
+   `krumath.com/math-visualizer*` → `math-visualizer`
+
+3. Smoke-test: browse unsigned OK; Export redirects to sign-in; after sign-in, Export works; assets load from `/math-visualizer/assets/...`.
+4. Maintainer adds a home card on `krumath.com/home` (KruMath monorepo — **not** this repo).
 
 ## Topics covered
 
-The visualizer is organized around common secondary-school areas, including:
-
-- Functions
-- Coordinate geometry
-- Geometry
-- Transformations
-- Vectors
-- Trigonometry
-- Calculus
-- Inequalities
-- Sequences and series
-- Statistics
-- Probability
-
-New concepts and improvements are added over time.
+Functions, coordinate geometry, geometry, transformations, vectors, trigonometry, calculus, inequalities, sequences and series, statistics, probability.
 
 ## Contributing
 
-Contributions are welcome. If you would like to help — whether by fixing something, improving an existing visualization, or suggesting a new idea — please open a pull request or start a discussion in the repository.
+Contributions are welcome. Keep the focus on clarity and usefulness for classroom teaching.
 
-Before submitting changes, please keep the focus on clarity and usefulness for classroom teaching.
+## About KruMath
 
-## About Krumath
-
-Krumath is an educational mathematics platform. This visualizer is one piece of that work: making abstract ideas easier to see, touch, and talk about in real lessons.
+KruMath is an educational mathematics platform. This visualizer is one piece of that work: making abstract ideas easier to see, touch, and talk about in real lessons.

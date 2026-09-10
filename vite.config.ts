@@ -5,13 +5,14 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
-export default defineConfig(({ mode, command }) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const envDefine = Object.fromEntries(
     Object.entries(env).map(([k, v]) => [`import.meta.env.${k}`, JSON.stringify(v)]),
   );
 
   return {
+    base: "/math-visualizer/",
     define: envDefine,
     resolve: {
       alias: { "@": `${process.cwd()}/src` },
@@ -24,7 +25,10 @@ export default defineConfig(({ mode, command }) => {
       tanstackStart({
         server: { entry: "server" },
       }),
-      ...(command === "build" ? [nitro()] : []),
+      nitro({
+        preset: "cloudflare-module",
+        baseURL: "/math-visualizer/",
+      }),
       react(),
     ],
   };

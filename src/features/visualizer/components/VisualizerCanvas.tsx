@@ -41,7 +41,10 @@ import {
   X,
   Plus,
   Minus,
+  Download,
 } from "lucide-react";
+import { requireSignedInForAction } from "@/lib/requireSignedInForAction";
+import { exportSvgElementAsPng } from "@/lib/exportPng";
 
 // Calculate a "nice" step interval based on coordinate range and screen pixel dimension (1, 2, 2.5, 5, 10 × 10^k progression)
 function calculateGridSteps(
@@ -169,7 +172,9 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
   resetKey = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const sliderTrackRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const clipId = useId();
   const arrowId = useId();
   const [size, setSize] = useState({ width: 800, height: 600 });
@@ -2344,6 +2349,20 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
   const isNearTop = hoverInfo ? hoverInfo.screenY < 140 : false;
   const tooltipTop = hoverInfo ? (isNearTop ? hoverInfo.screenY + 28 : hoverInfo.screenY - 22) : 0;
 
+  const handleExportPng = async () => {
+    if (!svgRef.current || isExporting) return;
+    const allowed = await requireSignedInForAction();
+    if (!allowed) return;
+    setIsExporting(true);
+    try {
+      await exportSvgElementAsPng(svgRef.current);
+    } catch (error) {
+      console.error("Export PNG failed", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -2412,6 +2431,23 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
             <Grid className="h-3.5 w-3.5" />
           </button>
         )}
+
+        <div className="w-[1px] h-3.5 sm:h-4 bg-border/80 mx-0.5 shrink-0" />
+
+        {/* Export PNG (soft-gated on production) */}
+        <button
+          type="button"
+          onClick={() => {
+            void handleExportPng();
+          }}
+          disabled={isExporting}
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+          title="Export graph as PNG (sign-in required on krumath.com)"
+          aria-label="Export PNG"
+        >
+          <Download className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span className="text-[11px] hidden sm:inline">{isExporting ? "…" : "Export"}</span>
+        </button>
 
         <div className="w-[1px] h-3.5 sm:h-4 bg-border/80 mx-0.5 shrink-0" />
 
@@ -2513,6 +2549,7 @@ export const VisualizerCanvas: React.FC<VisualizerCanvasProps> = ({
       </div>
 
       <svg
+        ref={svgRef}
         width={size.width}
         height={size.height}
         className="block w-full h-full cursor-pointer"

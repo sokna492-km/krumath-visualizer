@@ -1,13 +1,12 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import "@/features/visualizer/concepts/all";
 import {
   allConcepts,
   getConcept,
   conceptsByCategory,
   type ConceptDefinition,
   type CategoryId,
-} from "@/features/visualizer/concepts/registry";
+} from "@/features/visualizer/concepts/all";
 import type {
   MathScene,
   FunctionObject,
@@ -35,7 +34,9 @@ import {
   Layers,
   LineChart,
   X,
+  Home,
 } from "lucide-react";
+import { krumathHomeUrl } from "@/lib/krumathUrls";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -43,7 +44,10 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const concepts = useMemo(() => allConcepts(), []);
-  const defaultConcept = concepts[0] || getConcept("linear")!;
+  const defaultConcept = concepts[0] ?? getConcept("linear");
+  if (!defaultConcept) {
+    throw new Error("No visualizer concepts registered");
+  }
 
   const [currentConcept, setCurrentConcept] = useState<ConceptDefinition>(defaultConcept);
   const [activeCategory, setActiveCategory] = useState<CategoryId>(() => defaultConcept.category);
@@ -179,21 +183,6 @@ function Index() {
     }));
   };
 
-  // Zoom In / Out Handlers
-  const handleZoom = (factor: number) => {
-    const { xmin, xmax, ymin, ymax } = scene.viewport;
-    const midX = (xmin + xmax) / 2;
-    const midY = (ymin + ymax) / 2;
-    const rangeX = (xmax - xmin) * factor;
-    const rangeY = (ymax - ymin) * factor;
-    handleUpdateViewport({
-      xmin: midX - rangeX / 2,
-      xmax: midX + rangeX / 2,
-      ymin: midY - rangeY / 2,
-      ymax: midY + rangeY / 2,
-    });
-  };
-
   // Toggle Grid / Axes
   const handleToggleGrid = () => {
     setScene((prev) => ({
@@ -267,9 +256,6 @@ function Index() {
   const primaryFnObj = scene.objects.find((o) => o.kind === "function") as
     FunctionObject | undefined;
 
-  // Live readouts derived from concept definition
-  const readouts = currentConcept.readouts ? currentConcept.readouts(scene) : [];
-
   const toggleTheme = () => {
     setIsDark(!isDark);
     document.documentElement.classList.toggle("dark", !isDark);
@@ -287,7 +273,7 @@ function Index() {
         <header className="md:hidden h-12 px-3 border-b border-border bg-card/95 backdrop-blur-md flex items-center justify-between shrink-0 z-30">
           <div className="flex items-center gap-2 min-w-0">
             <img
-              src="/favicon.svg"
+              src={`${import.meta.env.BASE_URL}favicon.svg`}
               alt="Krumath"
               className="h-7 w-7 shrink-0 rounded-lg"
             />
@@ -299,7 +285,14 @@ function Index() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Theme Toggle */}
+            <a
+              href={krumathHomeUrl()}
+              className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              title="Back to KruMath"
+              aria-label="Back to KruMath"
+            >
+              <Home className="h-4 w-4" />
+            </a>
             <button
               onClick={toggleTheme}
               className="p-1.5 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -317,7 +310,7 @@ function Index() {
         <header className="hidden md:flex h-14 px-4 border-b border-border bg-card items-center justify-between shrink-0 z-30">
           <div className="flex items-center gap-2.5">
             <img
-              src="/favicon.svg"
+              src={`${import.meta.env.BASE_URL}favicon.svg`}
               alt="Krumath"
               className="h-8 w-8 shrink-0 rounded-lg"
             />
@@ -329,6 +322,14 @@ function Index() {
           </div>
 
           <div className="flex items-center gap-2">
+            <a
+              href={krumathHomeUrl()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-input bg-background hover:bg-accent text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              title="Back to KruMath"
+            >
+              <Home className="h-4 w-4" />
+              <span>Home</span>
+            </a>
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg border border-input bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
